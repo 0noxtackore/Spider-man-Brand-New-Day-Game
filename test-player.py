@@ -16,7 +16,8 @@ pygame.display.set_caption("Spider-Man - Test Player")
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
-DARK_RED = (139, 0, 0)  # Rojo oscuro para barra de vida
+ORANGE = (255, 149, 0)
+DARK_RED = (139, 0, 0)
 
 # Rutas de animaciones
 ANIMATION_PATHS = {
@@ -25,14 +26,20 @@ ANIMATION_PATHS = {
     "run-right": "images-game/characters/Spider-man/run-right.gif",
     "run-left": "images-game/characters/Spider-man/run-left.gif",
     "entry-right": "images-game/characters/Spider-man/entry-right.png",
-    "entry-left": "images-game/characters/Spider-man/entry-left.png"
+    "entry-left": "images-game/characters/Spider-man/entry-left.png",
+    "jump-right": "images-game/characters/Spider-man/jump-right.gif",
+    "jump-left": "images-game/characters/Spider-man/jump-left.gif",
+    "sit-right": "images-game/characters/Spider-man/sit-right.png",
+    "sit-left": "images-game/characters/Spider-man/sit-left.png",
+    "sit-center": "images-game/characters/Spider-man/sit-center.png",
+    "sit-back": "images-game/characters/Spider-man/sit-back.png"
 }
 
 HEALTH_ICON_PATH = "images-game/health-character/Spider-man.png"
 
 # Cargar GIF con PIL
 def load_gif_frames(path, scale_factor=1.0):
-    """Carga frames de un GIF usando PIL con transparencia"""
+    """Carga frames de un GIF usando PIL con transparencia y normalizacion de tamaño"""
     frames = []
     if not os.path.exists(path):
         print(f"No encontrado: {path}")
@@ -40,18 +47,23 @@ def load_gif_frames(path, scale_factor=1.0):
     
     try:
         gif = Image.open(path)
+        
+        # Obtener dimensiones del primer frame como referencia
+        gif.seek(0)
+        ref_frame = gif.convert('RGBA')
+        ref_w = int(ref_frame.width * scale_factor)
+        ref_h = int(ref_frame.height * scale_factor)
+        
         for frame_num in range(gif.n_frames):
             gif.seek(frame_num)
             # Convertir a RGBA para preservar transparencia
             frame_rgba = gif.convert('RGBA')
-            frame_data = frame_rgba.tobytes()
-            frame_surface = pygame.image.fromstring(frame_data, frame_rgba.size, 'RGBA')
-            # Escalar con suavizado (anti-aliasing)
-            new_w = int(frame_surface.get_width() * scale_factor)
-            new_h = int(frame_surface.get_height() * scale_factor)
-            frame_scaled = pygame.transform.smoothscale(frame_surface, (new_w, new_h))
-            frames.append(frame_scaled)
-        print(f"Cargado: {path} ({len(frames)} frames)")
+            # Escalar al tamaño de referencia (normalizar)
+            frame_resized = frame_rgba.resize((ref_w, ref_h), Image.Resampling.LANCZOS)
+            frame_data = frame_resized.tobytes()
+            frame_surface = pygame.image.fromstring(frame_data, (ref_w, ref_h), 'RGBA')
+            frames.append(frame_surface)
+        print(f"Cargado: {path} ({len(frames)} frames, {ref_w}x{ref_h})")
     except Exception as e:
         print(f"Error cargando {path}: {e}")
     
@@ -75,15 +87,22 @@ def load_single_image(path, scale_factor=1.0):
 # Escala del personaje (más pequeño para ventana)
 PLAYER_SCALE = 0.3
 RUN_SCALE = 0.25  # Escala más pequeña para run-left y run-right
+JUMP_SCALE = 0.25  # Escala más pequeña para jump-left y jump-right
 
 # Cargar todas las animaciones
 animations = {
     "idle-right": load_gif_frames(ANIMATION_PATHS["idle-right"], PLAYER_SCALE),
     "idle-left": load_gif_frames(ANIMATION_PATHS["idle-left"], PLAYER_SCALE),
-    "run-right": load_gif_frames(ANIMATION_PATHS["run-right"], RUN_SCALE),  # Más pequeño
-    "run-left": load_gif_frames(ANIMATION_PATHS["run-left"], RUN_SCALE),   # Más pequeño
+    "run-right": load_gif_frames(ANIMATION_PATHS["run-right"], RUN_SCALE),
+    "run-left": load_gif_frames(ANIMATION_PATHS["run-left"], RUN_SCALE),
     "entry-right": [load_single_image(ANIMATION_PATHS["entry-right"], PLAYER_SCALE)],
-    "entry-left": [load_single_image(ANIMATION_PATHS["entry-left"], PLAYER_SCALE)]
+    "entry-left": [load_single_image(ANIMATION_PATHS["entry-left"], PLAYER_SCALE)],
+    "jump-right": load_gif_frames(ANIMATION_PATHS["jump-right"], PLAYER_SCALE),
+    "jump-left": load_gif_frames(ANIMATION_PATHS["jump-left"], PLAYER_SCALE),
+    "sit-right": [load_single_image(ANIMATION_PATHS["sit-right"], PLAYER_SCALE)],
+    "sit-left": [load_single_image(ANIMATION_PATHS["sit-left"], PLAYER_SCALE)],
+    "sit-center": [load_single_image(ANIMATION_PATHS["sit-center"], PLAYER_SCALE)],
+    "sit-back": [load_single_image(ANIMATION_PATHS["sit-back"], PLAYER_SCALE)]
 }
 
 # Cargar icono de vida (más grande, 0.25 en lugar de 0.15)
@@ -112,10 +131,25 @@ class Player:
         self.frame_counter = 0
         self.facing_right = True
         
+        # Salto (jump animation sin bucle)
+        self.is_jumping = False
+        self.jump_played = False  # Para controlar que solo se reproduzca una vez
+        
+        # Animación de aterrizaje (sit -> idle)
+        self.is_sitting = False
+        self.sit_timer = 0
+        self.sit_duration = 4  # frames para animación sit (< 1s a 60fps)
+        
         # Volteo (transición)
         self.is_turning = False
         self.turn_timer = 0
         self.turn_duration = 8  # frames para entry
+        
+        # Agacharse (sit-left/sit-right mantenido)
+        self.is_crouching = False
+        self.crouch_turning = False  # Para transición sit-center/sit-back
+        self.crouch_turn_timer = 0
+        self.crouch_turn_duration = 6
         
         # Vida
         self.max_health = 100
@@ -128,14 +162,44 @@ class Player:
         # Movimiento horizontal
         moving_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+        moving_down = keys[pygame.K_DOWN] or keys[pygame.K_s]
         
         # Prioridad: si ambas teclas, mantener dirección actual (quieto)
         if moving_right and moving_left:
             self.vel_x = 0
-            # Mantener animación idle en la dirección actual
-            if not self.is_turning:
+            # Mantener animación idle en la dirección actual (si no está en transición)
+            if not self.is_turning and not self.is_sitting and not self.is_crouching:
                 self.current_animation = "idle-right" if self.facing_right else "idle-left"
-            return  # Salir, no procesar más
+            # No hacer return aquí para permitir que la física continúe
+        
+        # Manejar animación de agacharse
+        if self.is_crouching:
+            self.vel_x = 0  # No moverse horizontalmente mientras se agacha
+            
+            # Si está en transición de volteo en crouch
+            if self.crouch_turning:
+                self.crouch_turn_timer -= 1
+                if self.crouch_turn_timer <= 0:
+                    self.crouch_turning = False
+                    # Al terminar transición, ir al sit correspondiente
+                    self.current_animation = "sit-right" if self.facing_right else "sit-left"
+                    self.frame_index = 0
+            else:
+                # Detectar cambio de dirección mientras está agachado
+                if moving_right and not self.facing_right:
+                    # Voltear de izquierda a derecha
+                    self.crouch_turning = True
+                    self.crouch_turn_timer = self.crouch_turn_duration
+                    self.current_animation = "sit-back"
+                    self.facing_right = True
+                    self.frame_index = 0
+                elif moving_left and self.facing_right:
+                    # Voltear de derecha a izquierda
+                    self.crouch_turning = True
+                    self.crouch_turn_timer = self.crouch_turn_duration
+                    self.current_animation = "sit-center"
+                    self.facing_right = False
+                    self.frame_index = 0
         
         # Manejar animación de volteo
         if self.is_turning:
@@ -148,43 +212,92 @@ class Player:
                     self.current_animation = "run-right" if moving_right else "idle-right"
                 else:
                     self.current_animation = "run-left" if moving_left else "idle-left"
-            return  # No procesar más durante volteo
         
-        # Movimiento normal (no está volteando)
-        if moving_right:
-            # Acelerar hacia velocidad maxima
-            self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
-            self.vel_x = self.current_speed
-            if not self.facing_right:
-                # Volteando de izquierda a derecha
-                self.is_turning = True
-                self.turn_timer = self.turn_duration
-                self.current_animation = "entry-right"
-                self.facing_right = True
-            else:
-                self.current_animation = "run-right"
-        elif moving_left:
-            # Acelerar hacia velocidad maxima
-            self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
-            self.vel_x = -self.current_speed
-            if self.facing_right:
-                # Volteando de derecha a izquierda
-                self.is_turning = True
-                self.turn_timer = self.turn_duration
-                self.current_animation = "entry-left"
-                self.facing_right = False
-            else:
-                self.current_animation = "run-left"
-        else:
-            # No se mueve - desacelerar hacia velocidad base
-            self.current_speed += (self.base_speed - self.current_speed) * self.acceleration
-            self.vel_x = 0
+        # Detectar tecla abajo para agacharse (solo en suelo y no saltando)
+        if moving_down and self.on_ground and not self.is_jumping and not self.is_crouching:
+            self.is_crouching = True
+            self.crouch_turning = False
+            # Seleccionar animación según dirección actual
+            self.current_animation = "sit-right" if self.facing_right else "sit-left"
+            self.frame_index = 0
+        
+        # Detectar tecla arriba para salir de agacharse (solo flecha arriba)
+        moving_up = keys[pygame.K_UP]
+        if self.is_crouching and moving_up:
+            self.is_crouching = False
+            self.crouch_turning = False
             self.current_animation = "idle-right" if self.facing_right else "idle-left"
+            self.frame_index = 0
         
-        # Salto
-        if (keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]) and self.on_ground:
+        # Movimiento normal (no está volteando ni sentándose ni agachándose ni en transición de crouch)
+        if not self.is_crouching and not self.is_turning and not self.is_sitting:
+            if not self.is_jumping and not self.is_sitting:
+                if moving_right:
+                    # Acelerar hacia velocidad maxima
+                    self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
+                    self.vel_x = self.current_speed
+                    if not self.facing_right:
+                        # Volteando de izquierda a derecha
+                        self.is_turning = True
+                        self.turn_timer = self.turn_duration
+                        self.current_animation = "entry-right"
+                        self.facing_right = True
+                    else:
+                        self.current_animation = "run-right"
+                elif moving_left:
+                    # Acelerar hacia velocidad maxima
+                    self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
+                    self.vel_x = -self.current_speed
+                    if self.facing_right:
+                        # Volteando de derecha a izquierda
+                        self.is_turning = True
+                        self.turn_timer = self.turn_duration
+                        self.current_animation = "entry-left"
+                        self.facing_right = False
+                    else:
+                        self.current_animation = "run-left"
+                else:
+                    # No se mueve - desacelerar hacia velocidad base
+                    self.current_speed += (self.base_speed - self.current_speed) * self.acceleration
+                    self.vel_x = 0
+                    self.current_animation = "idle-right" if self.facing_right else "idle-left"
+            else:
+                # Si está saltando, actualizar velocidad y detectar cambio de dirección
+                if moving_right:
+                    self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
+                    self.vel_x = self.current_speed
+                    # Cambiar animación de salto si voltea a la derecha
+                    if not self.facing_right:
+                        self.facing_right = True
+                        self.current_animation = "jump-right"
+                        self.frame_index = 0  # Resetear frame
+                elif moving_left:
+                    self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
+                    self.vel_x = -self.current_speed
+                    # Cambiar animación de salto si voltea a la izquierda
+                    if self.facing_right:
+                        self.facing_right = False
+                        self.current_animation = "jump-left"
+                        self.frame_index = 0  # Resetear frame
+                else:
+                    self.vel_x = 0
+        
+        # Salto (solo con SPACE, no UP ni W) - puede interrumpir sit
+        if keys[pygame.K_SPACE] and self.on_ground and not self.is_jumping:
+            # Cancelar cualquier animación de sit si está activa
+            if self.is_sitting:
+                self.is_sitting = False
+                self.sit_timer = 0
             self.vel_y = self.jump_power
             self.on_ground = False
+            self.is_jumping = True
+            self.jump_played = False  # Resetear para reproducir animación
+            self.frame_index = 0  # Resetear frame para animación de salto
+            # Seleccionar animación de salto según dirección
+            if self.facing_right:
+                self.current_animation = "jump-right"
+            else:
+                self.current_animation = "jump-left"
         
         # Aplicar gravedad
         self.vel_y += self.gravity
@@ -197,7 +310,27 @@ class Player:
         if self.y + self.height > self.ground_y:
             self.y = self.ground_y - self.height
             self.vel_y = 0
+            was_in_air = not self.on_ground  # Verificar si venía del aire
             self.on_ground = True
+            # Si acaba de aterrizar, verificar si está corriendo
+            if was_in_air and self.is_jumping:
+                self.is_jumping = False
+                moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                moving_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                
+                # Si está corriendo, ir directamente a run, sino hacer sit -> idle
+                if moving_right:
+                    self.current_animation = "run-right"
+                    self.facing_right = True
+                elif moving_left:
+                    self.current_animation = "run-left"
+                    self.facing_right = False
+                else:
+                    # No está corriendo, iniciar animación sit -> idle
+                    self.is_sitting = True
+                    self.sit_timer = self.sit_duration
+                    self.current_animation = "sit-right" if self.facing_right else "sit-left"
+                    self.frame_index = 0
         
         # Limitar a pantalla
         if self.x < 0:
@@ -216,7 +349,39 @@ class Player:
         self.frame_counter += 1
         if self.frame_counter >= self.frame_delay:
             self.frame_counter = 0
-            self.frame_index = (self.frame_index + 1) % len(anim_frames)
+            
+            # Manejar animación de agacharse (sit-center/sit-back transiciones)
+            if self.is_crouching:
+                # Solo manejar transiciones de volteo en crouch
+                if self.crouch_turning:
+                    self.crouch_turn_timer -= 1
+                    if self.crouch_turn_timer <= 0:
+                        self.crouch_turning = False
+                        # Al terminar transición, ir al sit correspondiente
+                        self.current_animation = "sit-right" if self.facing_right else "sit-left"
+                        self.frame_index = 0
+                return
+            
+            # Manejar animación de sentarse (sit -> idle)
+            if self.is_sitting:
+                self.sit_timer -= 1
+                if self.sit_timer <= 0:
+                    self.is_sitting = False
+                    # Al terminar sit, ir a idle
+                    self.current_animation = "idle-right" if self.facing_right else "idle-left"
+                    self.frame_index = 0
+                # Las animaciones sit son estáticas (un solo frame)
+                return
+            
+            # Si es animación de salto, no hacer bucle (reproducir una sola vez)
+            if self.current_animation in ["jump-right", "jump-left"]:
+                # Avanzar frame solo si no hemos llegado al final
+                if self.frame_index < len(anim_frames) - 1:
+                    self.frame_index += 1
+                # Si llegamos al final, mantener el último frame
+            else:
+                # Otras animaciones hacen bucle normal
+                self.frame_index = (self.frame_index + 1) % len(anim_frames)
     
     def draw(self, surface):
         # Obtener frame actual
@@ -227,42 +392,71 @@ class Player:
             frame_rect = frame.get_rect()
             frame_rect.centerx = int(self.x + self.width // 2)
             frame_rect.bottom = int(self.y + self.height)
+            
+            # Offset horizontal para animaciones de salto (centrar visualmente)
+            if self.current_animation == "jump-right":
+                frame_rect.x -= 0  # Mover un poco a la izquierda
+            elif self.current_animation == "jump-left":
+                frame_rect.x += 0  # Mover un poco a la derecha
+            
             surface.blit(frame, frame_rect)
         
         # Debug: dibujar hitbox (comentar para ocultar)
         # pygame.draw.rect(surface, RED, (int(self.x), int(self.y), self.width, self.height), 2)
     
     def draw_health(self, surface):
-        # Configuracion barra de vida - mas ancha
-        bar_width = 285
+        # Configuracion barra de vida
+        bar_width = 320
         bar_height = 20
         
-        # Icono de Spider-man a la izquierda
+        # Icono a la izquierda, barra al lado centrada verticalmente
         if health_icon:
             icon_x = 10
             icon_y = 15
             surface.blit(health_icon, (icon_x, icon_y))
-            # Barra al lado del icono, centrada verticalmente con el icono
+            # Barra al lado del icono, centrada verticalmente
             icon_center_y = icon_y + health_icon.get_height() // 2
-            bar_x = icon_x + health_icon.get_width()  # Justo al lado, sin espacio
+            bar_x = icon_x + health_icon.get_width()  # Justo al lado del icono
             bar_y = icon_center_y - bar_height // 2  # Centrada vertical con icono
         else:
             bar_x = 60
             bar_y = 25
         
-        # Fondo de barra (negro) - sin margen izquierdo extra
-        pygame.draw.rect(surface, BLACK, (bar_x, bar_y - 2, bar_width + 4, bar_height + 4))
+        # Fondo de barra (negro)
+        pygame.draw.rect(surface, BLACK, (bar_x - 2, bar_y - 2, bar_width + 4, bar_height + 4))
         
-        # Barra de vida (rojo oscuro)
+        # Barra de vida - color segun porcentaje
         health_width = int((self.health / self.max_health) * bar_width)
-        pygame.draw.rect(surface, DARK_RED, (bar_x, bar_y, health_width, bar_height))
+        health_percent = self.health / self.max_health
         
-        # Texto de vida
-        font = pygame.font.SysFont("arial", 18, bold=True)
-        health_text = font.render(f"{self.health}/{self.max_health}", True, WHITE)
-        text_x = bar_x + bar_width // 2 - health_text.get_width() // 2
-        text_y = bar_y + bar_height // 2 - health_text.get_height() // 2
-        surface.blit(health_text, (text_x, text_y))
+        if health_percent >= 0.5:
+            bar_color = ORANGE
+        else:
+            bar_color = RED  
+        
+        pygame.draw.rect(surface, bar_color, (bar_x, bar_y, health_width, bar_height))
+        
+        # Texto SPIDER-MAN con efecto de contraste dinamico
+        font = pygame.font.SysFont("arial", 16, bold=True)
+        text_str = "SPIDER-MAN"
+        
+        # Renderizamos dos versiones del texto
+        text_white = font.render(text_str, True, WHITE)
+        text_black = font.render(text_str, True, BLACK)
+        
+        text_x = bar_x + bar_width // 2 - text_white.get_width() // 2
+        text_y = bar_y + bar_height // 2 - text_white.get_height() // 2
+        
+        # A. Dibujamos la version BLANCA primero (se vera donde NO hay barra de vida)
+        surface.blit(text_white, (text_x, text_y))
+        
+        # B. Dibujamos la version NEGRA, pero solo dentro del area de la barra actual
+        current_bar_rect = pygame.Rect(bar_x, bar_y, health_width, bar_height)
+        surface.set_clip(current_bar_rect)
+        surface.blit(text_black, (text_x, text_y))
+        
+        # C. Resetear el clip
+        surface.set_clip(None)
 
 # Instanciar jugador
 player = Player()
@@ -306,7 +500,7 @@ while running:
     font_small = pygame.font.SysFont("arial", 16)
     instructions = [
         "Flechas/A,D: Moverse",
-        "Espacio/W/Arriba: Saltar",
+        "SPACE: Saltar",
         "ESC: Salir",
         "1: Daño | 2: Curar"
     ]
