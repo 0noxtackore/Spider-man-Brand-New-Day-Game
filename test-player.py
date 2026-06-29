@@ -39,7 +39,11 @@ ANIMATION_PATHS = {
     "swing-right": "images-game/characters/Spider-man/swing/right",
     "swing-left": "images-game/characters/Spider-man/swing/left",
     "wsh-right": "images-game/characters/Spider-man/wsh-right.gif",
-    "wsh-left": "images-game/characters/Spider-man/wsh-left.gif"
+    "wsh-left": "images-game/characters/Spider-man/wsh-left.gif",
+    "shield-right": "images-game/characters/Spider-man/sh-right.png",
+    "shield-left": "images-game/characters/Spider-man/sh-left.png",
+    "flip-right": "images-game/characters/Spider-man/flip/right/f-i.png",
+    "flip-left": "images-game/characters/Spider-man/flip/left/f-i.png"
 }
 
 HEALTH_ICON_PATH = "images-game/health-character/Spider-man.png"
@@ -197,6 +201,10 @@ animations = {
     "swing-left": load_png_sequence_from_dir(ANIMATION_PATHS["swing-left"], PLAYER_SCALE, blur_radius=1.5),
     "wsh-right": load_gif_frames(ANIMATION_PATHS["wsh-right"], PLAYER_SCALE),
     "wsh-left": load_gif_frames(ANIMATION_PATHS["wsh-left"], PLAYER_SCALE),
+    "shield-right": [load_single_image(ANIMATION_PATHS["shield-right"], PLAYER_SCALE)],
+    "shield-left": [load_single_image(ANIMATION_PATHS["shield-left"], PLAYER_SCALE)],
+    "flip-right": [load_single_image(ANIMATION_PATHS["flip-right"], PLAYER_SCALE)],
+    "flip-left": [load_single_image(ANIMATION_PATHS["flip-left"], PLAYER_SCALE)],
 }
 
 # Load health icon (larger, 0.25 instead of 0.15)
@@ -280,6 +288,15 @@ class Player:
         self.crouch_turning = False  # For sit-center/sit-back transition
         self.crouch_turn_timer = 0
         self.crouch_turn_duration = 6
+
+        # Shield / Block
+        self.is_blocking = False
+
+        # Double jump / Somersault (turn-based: odd=normal, even=flip)
+        self.is_somersaulting = False
+        self.somersault_angle = 0
+        self.jump_turn = 0
+        self.space_was_held = False
         
         # Health
         self.max_health = 100
@@ -304,6 +321,11 @@ class Player:
                 else:
                     self.current_animation = "idle-right" if self.facing_right else "idle-left"
             # Don't return here to allow physics to continue
+        
+        # Shield active (toggle) — keep vel_x = 0 and force animation
+        if self.is_blocking:
+            self.vel_x = 0
+            self.current_animation = "shield-right" if self.facing_right else "shield-left"
         
         # Handle crouch animation
         if self.is_crouching:
@@ -362,8 +384,8 @@ class Player:
             self.current_animation = "idle-right" if self.facing_right else "idle-left"
             self.frame_index = 0
         
-        # Normal movement (not turning, sitting, crouching, crouch-transitioning, or punching)
-        if not self.is_crouching and not self.is_turning and not self.is_sitting:
+        # Normal movement (not turning, sitting, crouching, crouch-transitioning, punching, or blocking)
+        if not self.is_crouching and not self.is_turning and not self.is_sitting and not self.is_blocking:
             if self.is_punching:
                 if self.frame_data and self.frame_data[3]:
                     self.vel_x = self.frame_data[3] if self.facing_right else -self.frame_data[3]
@@ -428,17 +450,29 @@ class Player:
                     if not self.swing_launched:
                         self.vel_x = 0
         
-        # Jump (only with SPACE, not UP/W) — can interrupt sit
-        if keys[pygame.K_SPACE] and self.on_ground and not self.is_jumping and not self.is_punching and not self.is_swinging:
+        # Jump (SPACE) — turn-based: odd turn = normal jump, even turn = flip somersault
+        space_held = keys[pygame.K_SPACE]
+        space_just_pressed = space_held and not self.space_was_held
+        self.space_was_held = space_held
+        if space_just_pressed and self.on_ground and not self.is_punching and not self.is_swinging and not self.is_blocking:
             if self.is_sitting:
                 self.is_sitting = False
                 self.sit_timer = 0
+            self.jump_turn += 1
             self.vel_y = self.jump_power
             self.on_ground = False
             self.is_jumping = True
             self.jump_phase = "descend"
             self.frame_index = 0
-            self.current_animation = "jump-right" if self.facing_right else "jump-left"
+            if self.jump_turn % 2 == 1:
+                # Odd turn: normal jump animation
+                self.is_somersaulting = False
+                self.current_animation = "jump-right" if self.facing_right else "jump-left"
+            else:
+                # Even turn: flip somersault
+                self.is_somersaulting = True
+                self.somersault_angle = 0
+                self.current_animation = "jump-right" if self.facing_right else "jump-left"
         
         # Swing physics (pendulum) — replaces gravity and normal position
         if self.is_swinging:
@@ -474,6 +508,9 @@ class Player:
                 self.is_air_attacking = False
                 self.current_animation = "idle-right" if self.facing_right else "idle-left"
                 self.frame_index = 0
+            if was_in_air and self.is_somersaulting:
+                self.is_somersaulting = False
+                self.somersault_angle = 0
             if was_in_air and self.is_punching:
                 self.combo_timer = self.combo_timeout
             elif was_in_air and 0 < self.combo_step < self.total_combo_frames:
@@ -487,22 +524,23 @@ class Player:
                 self.is_air_attacking = False
                 self.swing_launched = False
                 self.swing_hop_timer = 0
-                moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
-                moving_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
-                
-                # If running, go directly to run, otherwise sit -> idle
-                if moving_right:
-                    self.current_animation = "run-right"
-                    self.facing_right = True
-                elif moving_left:
-                    self.current_animation = "run-left"
-                    self.facing_right = False
-                else:
-                    # Not running, start sit -> idle animation
-                    self.is_sitting = True
-                    self.sit_timer = self.sit_duration
-                    self.current_animation = "sit-right" if self.facing_right else "sit-left"
-                    self.frame_index = 0
+                if not self.is_blocking:
+                    moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
+                    moving_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
+                    
+                    # If running, go directly to run, otherwise sit -> idle
+                    if moving_right:
+                        self.current_animation = "run-right"
+                        self.facing_right = True
+                    elif moving_left:
+                        self.current_animation = "run-left"
+                        self.facing_right = False
+                    else:
+                        # Not running, start sit -> idle animation
+                        self.is_sitting = True
+                        self.sit_timer = self.sit_duration
+                        self.current_animation = "sit-right" if self.facing_right else "sit-left"
+                        self.frame_index = 0
         
         # Limitar a pantalla
         if self.x < 0:
@@ -559,6 +597,10 @@ class Player:
             if self.combo_timer <= 0:
                 self.combo_step = 0
 
+        # Somersault: continuous spin while double-jumping (loops until landing)
+        if self.is_somersaulting:
+            self.somersault_angle = (self.somersault_angle + 9) % 360
+        
         # Update animation
         self.update_animation()
     
@@ -585,6 +627,10 @@ class Player:
                         self.current_animation = "jump-right" if self.facing_right else "jump-left"
                     self.frame_index = 0
                     return
+        
+        # Somersault animation is handled entirely by draw() with rotation — skip update
+        if self.is_somersaulting:
+            return
         
         anim_frames = animations.get(self.current_animation, [])
         if not anim_frames:
@@ -633,6 +679,10 @@ class Player:
 
             # Swing animation (controlled by pendulum physics)
             if self.current_animation in ["swing-right", "swing-left"]:
+                return
+
+            # Shield animation (static, single frame)
+            if self.current_animation in ["shield-right", "shield-left"]:
                 return
 
             # Other animations loop normally
@@ -722,10 +772,19 @@ class Player:
             self.charge_timer = 0
 
     def draw(self, surface, shake_ox=0, shake_oy=0, cam_y=0):
-        anim_frames = animations.get(self.current_animation, [])
-        if not anim_frames or len(anim_frames) == 0:
-            return
-        frame = anim_frames[self.frame_index % len(anim_frames)]
+        # Somersault: use flip frame with rotation
+        if self.is_somersaulting:
+            base = "flip-right" if self.facing_right else "flip-left"
+            base_frames = animations.get(base, [])
+            if not base_frames:
+                return
+            frame = base_frames[self.frame_index % len(base_frames)]
+            frame = pygame.transform.rotate(frame, self.somersault_angle)
+        else:
+            anim_frames = animations.get(self.current_animation, [])
+            if not anim_frames or len(anim_frames) == 0:
+                return
+            frame = anim_frames[self.frame_index % len(anim_frames)]
         # Gentle wobble during swing
         wobble_shake = (0, 0)
         if self.is_swinging and self.current_animation in ["swing-right", "swing-left"]:
@@ -815,7 +874,7 @@ while running:
             if event.key == pygame.K_2:
                 player.health = min(player.max_health, player.health + 10)
             # Golpe (F) — secuencia ordenada 0→1→2→...→8
-            if event.key == pygame.K_f and not player.is_crouching and not player.is_swinging:
+            if event.key == pygame.K_f and not player.is_crouching and not player.is_swinging and not player.is_blocking:
                 if player.is_punching:
                     if player.combo_step >= player.total_combo_frames:
                         continue
@@ -832,20 +891,14 @@ while running:
                         player.combo_step = 0
                     player.is_punching = True
                     player.current_animation = "punch-right" if player.facing_right else "punch-left"
-                elif player.is_jumping and not player.is_air_attacking:
-                    player.is_air_attacking = True
-                    player.frame_index = 0
-                    player.frame_counter = 0
-                    player.current_animation = "air-attack-right" if player.facing_right else "air-attack-left"
-                    player.vel_y = 18
-                    continue
                 else:
+                    continue
                     continue
                 player.start_combo_frame(player.combo_step)
                 player.combo_step += 1
             
             # G: w-i (golpe pesado especial)
-            if event.key == pygame.K_g and player.on_ground and not player.is_crouching and not player.is_swinging and player.combo_step < player.total_combo_frames:
+            if event.key == pygame.K_g and player.on_ground and not player.is_crouching and not player.is_swinging and not player.is_blocking and player.combo_step < player.total_combo_frames:
                 if not player.is_punching:
                     player.is_punching = True
                     player.current_animation = "punch-right" if player.facing_right else "punch-left"
@@ -853,13 +906,27 @@ while running:
                 player.combo_step += 1
 
             # R: Web-shooter
-            if event.key == pygame.K_r and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting:
+            if event.key == pygame.K_r and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting and not player.is_blocking:
                 player.is_web_shooting = True
                 player.frame_index = 0
                 player.current_animation = "wsh-right" if player.facing_right else "wsh-left"
 
+            # C: Shield toggle
+            if event.key == pygame.K_c:
+                if player.is_blocking:
+                    player.is_blocking = False
+                    if player.on_ground:
+                        player.current_animation = "idle-right" if player.facing_right else "idle-left"
+                    else:
+                        player.current_animation = "jump-right" if player.facing_right else "jump-left"
+                elif not player.is_punching and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_sitting and not player.is_turning:
+                    player.is_blocking = True
+                    player.vel_x = 0
+                    player.current_animation = "shield-right" if player.facing_right else "shield-left"
+                    player.frame_index = 0
+
             # E: Swing — advance frame; if already swinging, hop + re-swing
-            if event.key == pygame.K_e and not player.is_crouching and not player.is_punching and player.swing_hop_timer == 0:
+            if event.key == pygame.K_e and not player.is_crouching and not player.is_punching and not player.is_blocking and player.swing_hop_timer == 0:
                 player.swing_seq_pos = (player.swing_seq_pos + 1) % len(SWING_SEQUENCE)
                 frame_idx = SWING_SEQUENCE[player.swing_seq_pos]
                 player.frame_index = frame_idx
@@ -895,7 +962,7 @@ while running:
                     player.jump_phase = None
 
             # Q: Catapulta — sw-ii (recto↑) o sw-iii (diagonal)
-            if event.key == pygame.K_q and not player.is_crouching and not player.is_punching:
+            if event.key == pygame.K_q and not player.is_crouching and not player.is_punching and not player.is_blocking:
                 if player.is_swinging:
                     player.is_swinging = False
                 else:
@@ -971,7 +1038,7 @@ while running:
         "[←→] or [A][D]  Move",
         "[SPACE]  Jump / Release swing",
         "[F]  Punch  |  [G]  w-i (heavy)",
-        "[E]  Swing  |  [Q]  Catapult  |  [R]  Web-shooter",
+        "[C]  Shield  |  [E]  Swing  |  [Q]  Catapult  |  [R]  Web-shooter",
         "[ESC]  Exit",
         "[1]  Damage  |  [2]  Heal"
     ]
@@ -1006,6 +1073,11 @@ while running:
     hud_text = f"{tag} | Step {player.combo_step}/{len(GROUND_COMBO)} | VelY: {player.vel_y:.1f}{swing_tag}"
     hud_surf = debug_font.render(hud_text, True, WHITE)
     screen.blit(hud_surf, (10, screen_height - 30))
+    
+    # Jump turn counter
+    turn_label = f"Jump turn: {player.jump_turn}"
+    turn_surf = debug_font.render(turn_label, True, WHITE)
+    screen.blit(turn_surf, (10, screen_height - 50))
     
     pygame.display.flip()
     clock.tick(60)
