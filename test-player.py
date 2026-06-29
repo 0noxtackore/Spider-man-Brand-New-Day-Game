@@ -2,6 +2,7 @@ import pygame
 import sys
 import os
 import math
+import random
 from PIL import Image, ImageFilter
 
 # Initialization
@@ -43,7 +44,8 @@ ANIMATION_PATHS = {
     "shield-right": "images-game/characters/Spider-man/sh-right.png",
     "shield-left": "images-game/characters/Spider-man/sh-left.png",
     "flip-right": "images-game/characters/Spider-man/flip/right/f-i.png",
-    "flip-left": "images-game/characters/Spider-man/flip/left/f-i.png"
+    "flip-left": "images-game/characters/Spider-man/flip/left/f-i.png",
+    "stealth": "images-game/characters/Spider-man/hf.png"
 }
 
 HEALTH_ICON_PATH = "images-game/health-character/Spider-man.png"
@@ -205,6 +207,7 @@ animations = {
     "shield-left": [load_single_image(ANIMATION_PATHS["shield-left"], PLAYER_SCALE)],
     "flip-right": [load_single_image(ANIMATION_PATHS["flip-right"], PLAYER_SCALE)],
     "flip-left": [load_single_image(ANIMATION_PATHS["flip-left"], PLAYER_SCALE)],
+    "stealth": [load_single_image(ANIMATION_PATHS["stealth"], PLAYER_SCALE)],
 }
 
 # Load health icon (larger, 0.25 instead of 0.15)
@@ -297,7 +300,11 @@ class Player:
         self.somersault_angle = 0
         self.jump_turn = 0
         self.space_was_held = False
-        
+
+        # Stealth / Ceiling hang (automatic rising)
+        self.is_stealth = False
+        self.stealth_rising = False
+
         # Health
         self.max_health = 100
         self.health = 100
@@ -310,7 +317,19 @@ class Player:
         moving_left = keys[pygame.K_LEFT] or keys[pygame.K_a]
         moving_right = keys[pygame.K_RIGHT] or keys[pygame.K_d]
         moving_down = keys[pygame.K_DOWN] or keys[pygame.K_s]
-        
+        moving_up = keys[pygame.K_UP]
+
+        # Stealth mode: automatic ceiling rise, no manual controls
+        if self.is_stealth:
+            if self.stealth_rising:
+                self.vel_y = -8
+                self.y += self.vel_y
+                self.vel_x = 0
+            self.current_animation = "stealth"
+            self.space_was_held = keys[pygame.K_SPACE]
+            self.update_animation()
+            return
+
         # Priority: if both pressed, keep current direction (stand still)
         if moving_right and moving_left:
             self.vel_x = 0
@@ -685,6 +704,10 @@ class Player:
             if self.current_animation in ["shield-right", "shield-left"]:
                 return
 
+            # Stealth animation (static, single frame)
+            if self.current_animation == "stealth":
+                return
+
             # Other animations loop normally
             self.frame_index = (self.frame_index + 1) % len(anim_frames)
     
@@ -771,7 +794,39 @@ class Player:
                 self.was_charged = True
             self.charge_timer = 0
 
+    def teleport_from_stealth(self):
+        """Sale del sigilo: teletransporta el eje X según facing y cae desde arriba."""
+        self.is_stealth = False
+        self.stealth_rising = False
+        offset = random.randint(1000, 1500)
+        if self.facing_right:
+            self.x += offset
+        else:
+            self.x -= offset
+        self.x = max(0, min(screen_width - self.width, self.x))
+        self.y = -self.height * 2
+        self.vel_x = 0
+        self.vel_y = 0
+        self.on_ground = False
+        self.is_jumping = False
+        self.jump_phase = "descend"
+        self.current_animation = "jump-right" if self.facing_right else "jump-left"
+        self.frame_index = 0
+
     def draw(self, surface, shake_ox=0, shake_oy=0, cam_y=0):
+        # Stealth: display hf.png at ceiling position
+        if self.is_stealth:
+            base = "stealth"
+            base_frames = animations.get(base, [])
+            if not base_frames:
+                return
+            frame = base_frames[0]
+            frame_rect = frame.get_rect()
+            frame_rect.centerx = int(self.x + self.width // 2) + shake_ox
+            frame_rect.centery = int(self.y + self.height // 2 + cam_y) + shake_oy
+            surface.blit(frame, frame_rect)
+            return
+
         # Somersault: use flip frame with rotation
         if self.is_somersaulting:
             base = "flip-right" if self.facing_right else "flip-left"
@@ -874,7 +929,7 @@ while running:
             if event.key == pygame.K_2:
                 player.health = min(player.max_health, player.health + 10)
             # Golpe (F) — secuencia ordenada 0→1→2→...→8
-            if event.key == pygame.K_f and not player.is_crouching and not player.is_swinging and not player.is_blocking:
+            if event.key == pygame.K_f and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth:
                 if player.is_punching:
                     if player.combo_step >= player.total_combo_frames:
                         continue
@@ -898,7 +953,7 @@ while running:
                 player.combo_step += 1
             
             # G: w-i (golpe pesado especial)
-            if event.key == pygame.K_g and player.on_ground and not player.is_crouching and not player.is_swinging and not player.is_blocking and player.combo_step < player.total_combo_frames:
+            if event.key == pygame.K_g and player.on_ground and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and player.combo_step < player.total_combo_frames:
                 if not player.is_punching:
                     player.is_punching = True
                     player.current_animation = "punch-right" if player.facing_right else "punch-left"
@@ -906,10 +961,21 @@ while running:
                 player.combo_step += 1
 
             # R: Web-shooter
-            if event.key == pygame.K_r and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting and not player.is_blocking:
+            if event.key == pygame.K_r and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting and not player.is_blocking and not player.is_stealth:
                 player.is_web_shooting = True
                 player.frame_index = 0
                 player.current_animation = "wsh-right" if player.facing_right else "wsh-left"
+
+            # H: Stealth — automatic ceiling rise + teleport (no revert)
+            if event.key == pygame.K_h and player.on_ground and not player.is_stealth and not player.is_punching and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_blocking and not player.is_turning and not player.is_sitting and not player.is_air_attacking and not player.is_somersaulting:
+                    # Activate stealth rising
+                    player.is_stealth = True
+                    player.stealth_rising = True
+                    player.y -= 70
+                    player.vel_x = 0
+                    player.vel_y = 0
+                    player.current_animation = "stealth"
+                    player.frame_index = 0
 
             # C: Shield toggle
             if event.key == pygame.K_c:
@@ -919,14 +985,14 @@ while running:
                         player.current_animation = "idle-right" if player.facing_right else "idle-left"
                     else:
                         player.current_animation = "jump-right" if player.facing_right else "jump-left"
-                elif not player.is_punching and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_sitting and not player.is_turning:
+                elif not player.is_punching and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_sitting and not player.is_turning and not player.is_stealth:
                     player.is_blocking = True
                     player.vel_x = 0
                     player.current_animation = "shield-right" if player.facing_right else "shield-left"
                     player.frame_index = 0
 
             # E: Swing — advance frame; if already swinging, hop + re-swing
-            if event.key == pygame.K_e and not player.is_crouching and not player.is_punching and not player.is_blocking and player.swing_hop_timer == 0:
+            if event.key == pygame.K_e and not player.is_crouching and not player.is_punching and not player.is_blocking and not player.is_stealth and player.swing_hop_timer == 0:
                 player.swing_seq_pos = (player.swing_seq_pos + 1) % len(SWING_SEQUENCE)
                 frame_idx = SWING_SEQUENCE[player.swing_seq_pos]
                 player.frame_index = frame_idx
@@ -951,6 +1017,8 @@ while running:
                 else:
                     player_center_y = player.y + player.height // 2
                     player.is_swinging = True
+                    player.is_somersaulting = False
+                    player.somersault_angle = 0
                     player.swing_pivot_x = player.x + player.width // 2
                     player.swing_pivot_y = player_center_y - player.swing_length
                     player.swing_angle = 0
@@ -962,7 +1030,7 @@ while running:
                     player.jump_phase = None
 
             # Q: Catapulta — sw-ii (recto↑) o sw-iii (diagonal)
-            if event.key == pygame.K_q and not player.is_crouching and not player.is_punching and not player.is_blocking:
+            if event.key == pygame.K_q and not player.is_crouching and not player.is_punching and not player.is_blocking and not player.is_stealth:
                 if player.is_swinging:
                     player.is_swinging = False
                 else:
@@ -987,7 +1055,7 @@ while running:
                 player.swing_launched = True
 
             # SPACE durante balanceo → soltar
-            if event.key == pygame.K_SPACE and player.is_swinging:
+            if event.key == pygame.K_SPACE and player.is_swinging and not player.is_stealth:
                 player.is_swinging = False
                 vx = player.swing_length * math.cos(player.swing_angle) * player.swing_angular_vel
                 vy = -player.swing_length * math.sin(player.swing_angle) * player.swing_angular_vel
@@ -1005,16 +1073,23 @@ while running:
     # Update player
     player.update(keys)
     
-    # Vertical camera: 100% follow
-    player_center_y = player.y + player.height // 2
-    target_cam_y = screen_height * 0.38 - player_center_y
-    if target_cam_y > cam_y:
-        cam_y += (target_cam_y - cam_y) * 0.25  # fast ascent
-    else:
-        cam_y += (target_cam_y - cam_y) * 0.12  # smooth descent
-    # Limit: ground never moves above 85% of screen
-    cam_y = max(cam_y, -(player.ground_y - screen_height * 0.85))
-    
+    # Vertical camera: 100% follow (paused during stealth rising)
+    if not (player.is_stealth and player.stealth_rising):
+        player_center_y = player.y + player.height // 2
+        target_cam_y = screen_height * 0.38 - player_center_y
+        if target_cam_y > cam_y:
+            cam_y += (target_cam_y - cam_y) * 0.25  # fast ascent
+        else:
+            cam_y += (target_cam_y - cam_y) * 0.12  # smooth descent
+        # Limit: ground never moves above 85% of screen
+        cam_y = max(cam_y, -(player.ground_y - screen_height * 0.85))
+
+    # Stealth rising off-screen → teleport
+    if player.is_stealth and player.stealth_rising:
+        screen_top = player.y + cam_y
+        if screen_top + player.height < 0:
+            player.teleport_from_stealth()
+
     # Screen shake
     shake_ox, shake_oy = 0, 0
     if player.shake_timer > 0:
@@ -1037,7 +1112,7 @@ while running:
     instructions = [
         "[←→] or [A][D]  Move",
         "[SPACE]  Jump / Release swing",
-        "[F]  Punch  |  [G]  w-i (heavy)",
+        "[F]  Punch  |  [G]  w-i (heavy)  |  [H]  Stealth",
         "[C]  Shield  |  [E]  Swing  |  [Q]  Catapult  |  [R]  Web-shooter",
         "[ESC]  Exit",
         "[1]  Damage  |  [2]  Heal"

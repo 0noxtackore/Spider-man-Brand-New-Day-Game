@@ -34,6 +34,9 @@ Inspired by the classic arcade beat-'em-up feel, the game focuses on fluid movem
 ### Shield
 - **C** (toggle) — Raises a shield using `sh-right.png` / `sh-left.png`. Blocks horizontal movement and prevents attacks. Press C again to lower.
 
+### Stealth / Ceiling Hang
+- **H** (toggle) — Hangs upside down from the ceiling using `hf.png`. Character rises automatically toward the top of the screen; camera stays fixed. Once the character goes off-screen, they teleport to a different X position (depending on facing direction) and fall back down. Press H while rising to cancel and fall immediately.
+
 ### Web-Shooter
 - **R** key (ground only) — Fires a web-shooter animation. Interruptible by combat.
 
@@ -65,6 +68,7 @@ Inspired by the classic arcade beat-'em-up feel, the game focuses on fluid movem
 | F | Punch (combo chain) |
 | G | Heavy punch "w-i" (ground only) |
 | C | Shield toggle |
+| H | Stealth — automatic ceiling rise + teleport |
 | R | Web-shooter (ground only) |
 | E | Start swing / Hop off swing |
 | Q | Catapult launch |
@@ -89,6 +93,7 @@ This game is a **work in progress** — each feature is built on demand, tested,
 - [x] Web-shooter (ground)
 - [x] Web-swing (pendulum physics)
 - [x] Catapult launch
+- [x] Stealth / ceiling hang (hf.png)
 - [x] Vertical camera follow
 - [x] Screen shake on impacts
 - [x] Olympic somersault (f-i.png procedural rotation)
@@ -130,6 +135,8 @@ python test-player.py
 ├── images-game/
 │   ├── characters/Spider-man/   # Frame-by-frame GIF/PNG animations
 │   ├── flip/                    # Olympic flip frames (f-i.png)
+│   │   ├── right/
+│   │   └── left/
 │   └── game-logo/              # Title logo (logo.png)
 ├── sound-game/                 # Sound effects (WIP)
 ├── soundtrack-game/            # Music tracks (WIP)
