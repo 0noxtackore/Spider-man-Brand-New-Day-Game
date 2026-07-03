@@ -24,10 +24,10 @@ except ImportError:
 pygame.init()
 pygame.mixer.init()
 
-# Pantalla completa
+# Pantalla completa (SCALED evita cambiar resolución del escritorio)
 info = pygame.display.Info()
 screen_width, screen_height = info.current_w, info.current_h
-screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN | pygame.SCALED)
 pygame.display.set_caption("Spider-Man - Brand New Day")
 
 # Icono y Logo
@@ -42,6 +42,7 @@ def safe_load_image(path):
 game_icon = safe_load_image("images-game/game-icon/icon.png")
 pygame.display.set_icon(game_icon)
 logo = safe_load_image("images-game/game-logo/logo.png")
+blur_bg = safe_load_image("images-game/game-logo/blur.png")
 
 # Variables de estado
 current_theme = "sun"
@@ -237,14 +238,18 @@ def draw_current_frame():
 
 def draw_ui():
     if not game_started:
-        # Logo - muy arriba de la pantalla
-        log_w = int(screen_width * 0.45)  # 25% del ancho (más pequeño)
+        # Logo - un poco abajo y a la derecha
+        log_w = int(screen_width * 0.45)
         log_h = int(logo.get_height() * (log_w / logo.get_width()))
         scaled_logo = pygame.transform.scale(logo, (log_w, log_h))
-        # Posición logo: usar Rect para colocar en el borde superior
         logo_rect = scaled_logo.get_rect()
-        logo_rect.centerx = screen_width // 2
-        logo_rect.top = 0  # Borde superior exacto
+        logo_rect.centerx = screen_width // 2 + 40
+        logo_rect.top = 40
+        # blur.png detrás del logo solo en noche
+        if current_theme == "night":
+            scaled_blur = pygame.transform.scale(blur_bg, (log_w, log_h))
+            blur_rect = scaled_blur.get_rect(center=(logo_rect.centerx, logo_rect.centery))
+            screen.blit(scaled_blur, blur_rect)
         screen.blit(scaled_logo, logo_rect)
         
         # Texto "PRESS START" mejorado con efecto de sombra y brillo
@@ -354,27 +359,7 @@ if PIL_AVAILABLE:
     elif "start-night" in gif_frames:
         LAUGHT_FRAME_CALCULATED = calculate_laught_frame("start-night")
 
-# Reproducir videos introductorios antes del juego
-if VIDEO_AVAILABLE:
-    # Pantalla negra entre videos
-    screen.fill((0, 0, 0))
-    pygame.display.flip()
-    
-    # Reproducir PS4 intro
-    play_video("game-intro/ps4-intro.mp4")
-    
-    # Pequeña pausa entre videos
-    pygame.time.wait(500)
-    
-    # Reproducir Marvel intro
-    play_video("game-intro/marvel-intro.mp4")
-    
-    # Pausa final antes del juego
-    pygame.time.wait(500)
-else:
-    print("Saltando videos introductorios (ffpyplayer no instalado)")
-
-# Iniciar música DESPUÉS de los videos (los GIFs ya están cargados y listos)
+# Iniciar música directo (sin videos introductorios)
 start_music()
 
 # Bucle Principal
