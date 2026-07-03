@@ -37,8 +37,8 @@ ANIMATION_PATHS = {
     "sit-back": "images-game/characters/Spider-man/sit-back.png",
     "climb-right": "images-game/characters/Spider-man/climb/right/climb.gif",
     "climb-left": "images-game/characters/Spider-man/climb/left/climb.gif",
-    "punch-gif-right": "images-game/characters/Spider-man/punch/right/punch.gif",
-    "punch-gif-left": "images-game/characters/Spider-man/punch/left/punch.gif",
+    "pch-right": "images-game/characters/Spider-man/punch/right",
+    "pch-left": "images-game/characters/Spider-man/punch/left",
     "punch-right": "images-game/characters/Spider-man/punch/right",
     "punch-left": "images-game/characters/Spider-man/punch/left",
     "swing-right": "images-game/characters/Spider-man/swing/right",
@@ -168,16 +168,24 @@ COMBO_FRAMES = [
     ("p-t-i",   15,  -14, 22, False,   0),
     ("sw-p",    18,  -10, 22, False,   0),
     ("w-i",     30,  -24,  0,  True, -28),
+    # PCH GIF entries (9-13): auto-play multi-frame GIFs
+    ("pch-i-gif",   1,   0,  0, False,   0),
+    ("pch-ii-gif",  1,   0,  0, False,   0),
+    ("pch-iii-gif", 1,   0,  0, False,   0),
+    ("pch-iv-gif",  1,   0,  0, False,   0),
+    ("pch-v-gif",   1,   0,  0, False,   0),
 ]
 # Map: position in COMBO_FRAMES → alphabetical PNG index (0=k-i … 8=w-i)
-COMBO_VISUAL_MAP = [0, 2, 3, 6, 1, 4, 5, 7, 8]
+# For GIF entries (9-13) the visual index is unused (animation switches)
+COMBO_VISUAL_MAP = [0, 2, 3, 6, 1, 4, 5, 7, 8, 0, 0, 0, 0, 0]
 
-# Ground pattern: three 7-hit phases concatenated → 21 frames total
+# Ground pattern: three 7-hit phases + 5 pch finisher → 26 frames total
 # Each number is the index within COMBO_FRAMES
 GROUND_COMBO = [
-    0,1,4,2,5,7,6,   # k-i, k-iii, k-ii, k-iv, p-i, sw-p, p-t-i
-    1,5,6,4,7,0,2,   # k-iii, p-i, p-t-i, k-ii, sw-p, k-i, k-iv
-    5,4,7,6,0,2,1,   # p-i, k-ii, sw-p, p-t-i, k-i, k-iv, k-iii
+    0,1,4,2,5,7,6,3,   # k-i, k-iii, k-ii, k-iv, p-i, sw-p, p-t-i, p-t-ii
+    1,5,6,4,7,0,2,3,   # k-iii, p-i, p-t-i, k-ii, sw-p, k-i, k-iv, p-t-ii
+    5,4,7,6,0,2,1,3,   # p-i, k-ii, sw-p, p-t-i, k-i, k-iv, k-iii, p-t-ii
+    9,10,11,12,13,     # pch-i, pch-ii, pch-iii, pch-iv, pch-v
 ]
 
 # Character scale (smaller for window)
@@ -201,8 +209,16 @@ animations = {
     "sit-back": [load_single_image(ANIMATION_PATHS["sit-back"], PLAYER_SCALE)],
     "climb-right": load_gif_frames(ANIMATION_PATHS["climb-right"], PLAYER_SCALE),
     "climb-left": load_gif_frames(ANIMATION_PATHS["climb-left"], PLAYER_SCALE),
-    "punch-gif-right": load_gif_frames(ANIMATION_PATHS["punch-gif-right"], PLAYER_SCALE),
-    "punch-gif-left": load_gif_frames(ANIMATION_PATHS["punch-gif-left"], PLAYER_SCALE),
+    "pch-1-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-i.gif"), PLAYER_SCALE),
+    "pch-2-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-ii.gif"), PLAYER_SCALE),
+    "pch-3-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-iii.gif"), PLAYER_SCALE),
+    "pch-4-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-iv.gif"), PLAYER_SCALE),
+    "pch-5-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-v.gif"), PLAYER_SCALE),
+    "pch-1-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-i.gif"), PLAYER_SCALE),
+    "pch-2-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-ii.gif"), PLAYER_SCALE),
+    "pch-3-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-iii.gif"), PLAYER_SCALE),
+    "pch-4-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-iv.gif"), PLAYER_SCALE),
+    "pch-5-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-v.gif"), PLAYER_SCALE),
     "punch-right": load_png_sequence_from_dir(ANIMATION_PATHS["punch-right"], PLAYER_SCALE, blur_radius=1.5),
     "punch-left": load_png_sequence_from_dir(ANIMATION_PATHS["punch-left"], PLAYER_SCALE, blur_radius=1.5),
     "air-attack-right": load_specific_pngs(ANIMATION_PATHS["punch-right"], AIR_ATTACK_FILES, PLAYER_SCALE, blur_radius=1.5),
@@ -271,11 +287,18 @@ class Player:
         self.was_charged = False
         self.input_buffer = 0
         self.shake_timer = 0
+        
+        # Combo GIF auto-play
+        self.combo_gif_active = False
+        self.combo_gif_frame = 0
+        self.combo_gif_counter = 0
+        self.combo_gif_speed = 2
+        self.combo_gif_total = 0
 
-        # Punch GIF (K key) — auto-play completo
-        self.punch_gif_active = False
-        self.punch_gif_counter = 0
-        self.punch_gif_delay = 3
+        # K punch — ciclo pch-i → pch-v
+        self.is_k_punch = False
+        self.k_step = 0
+        self.k_frame_counter = 0
 
         # Web-shooter
         self.is_web_shooting = False
@@ -313,6 +336,7 @@ class Player:
         self.somersault_angle = 0
         self.jump_turn = 0
         self.space_was_held = False
+        self.j_air_used = False
 
         # Stealth / Ceiling hang (automatic rising)
         self.is_stealth = False
@@ -430,8 +454,8 @@ class Player:
             self.current_animation = "idle-right" if self.facing_right else "idle-left"
             self.frame_index = 0
         
-        # Durante punch GIF: velocidad sin cambiar animacion
-        if self.punch_gif_active:
+        # K punch — velocidad y re-aplicar animacion si fue pisada
+        if self.is_k_punch:
             if moving_right and not moving_left:
                 self.current_speed += (self.max_speed - self.current_speed) * self.acceleration
                 self.vel_x = self.current_speed
@@ -441,9 +465,13 @@ class Player:
             else:
                 self.current_speed += (self.base_speed - self.current_speed) * self.acceleration
                 self.vel_x = 0
+            if not (self.current_animation.startswith("pch-") and (self.current_animation.endswith("-right") or self.current_animation.endswith("-left"))):
+                step = (self.k_step - 1) % 5 + 1
+                self.current_animation = f"pch-{step}-right" if self.facing_right else f"pch-{step}-left"
+                self.frame_index = 0
         
-        # Normal movement (not turning, sitting, crouching, crouch-transitioning, punching, or blocking)
-        if not self.is_crouching and not self.is_turning and not self.is_sitting and not self.is_blocking and not self.punch_gif_active:
+        # Normal movement
+        if not self.is_crouching and not self.is_turning and not self.is_sitting and not self.is_blocking and not self.is_k_punch:
             if self.is_punching:
                 if self.frame_data and self.frame_data[3]:
                     self.vel_x = self.frame_data[3] if self.facing_right else -self.frame_data[3]
@@ -512,7 +540,7 @@ class Player:
         space_held = keys[pygame.K_SPACE]
         space_just_pressed = space_held and not self.space_was_held
         self.space_was_held = space_held
-        if space_just_pressed and self.on_ground and not self.is_punching and not self.punch_gif_active and not self.is_swinging and not self.is_blocking:
+        if space_just_pressed and self.on_ground and not self.is_punching and not self.is_k_punch and not self.is_swinging and not self.is_blocking:
             if self.is_sitting:
                 self.is_sitting = False
                 self.sit_timer = 0
@@ -554,6 +582,7 @@ class Player:
             self.vel_y = 0
             was_in_air = not self.on_ground
             self.on_ground = True
+            self.j_air_used = False
             if was_in_air and self.is_swinging:
                 self.is_swinging = False
                 self.swing_launched = False
@@ -614,6 +643,19 @@ class Player:
             if self.input_buffer == 0 and self.is_punching and self.combo_step < self.total_combo_frames:
                 self.start_combo_frame(self.combo_step)
                 self.combo_step += 1
+        
+        # Combo GIF auto-advance
+        if self.is_punching and self.combo_gif_active:
+            self.combo_gif_counter += 1
+            if self.combo_gif_counter >= self.combo_gif_speed:
+                self.combo_gif_counter = 0
+                self.combo_gif_frame += 1
+                if self.combo_gif_frame >= self.combo_gif_total:
+                    self.combo_gif_active = False
+                    if self.combo_step < self.total_combo_frames:
+                        self.input_buffer = 1
+                else:
+                    self.frame_index = self.combo_gif_frame
 
         # Punch display timer
         if self.is_punching:
@@ -630,7 +672,7 @@ class Player:
                 else:
                     self.current_animation = "jump-right" if self.facing_right else "jump-left"
                 self.frame_index = 0
-
+        
         # Decaimiento del shake
         if self.shake_timer > 0:
             self.shake_timer -= 1
@@ -658,10 +700,6 @@ class Player:
         # Somersault: continuous spin while double-jumping (loops until landing)
         if self.is_somersaulting:
             self.somersault_angle = (self.somersault_angle + 9) % 360
-        
-        # Cleanup: si punch GIF fue interrumpido
-        if self.punch_gif_active and self.current_animation not in ["punch-gif-right", "punch-gif-left"]:
-            self.punch_gif_active = False
         
         # Update animation
         self.update_animation()
@@ -694,31 +732,33 @@ class Player:
         if self.is_somersaulting:
             return
         
+        # K punch auto-play (2 ticks per frame = 2x speed)
+        if self.is_k_punch and (self.current_animation.startswith("pch-") and (self.current_animation.endswith("-right") or self.current_animation.endswith("-left"))):
+            anim_frames = animations.get(self.current_animation, [])
+            if not anim_frames:
+                self.is_k_punch = False
+                return
+            self.k_frame_counter += 1
+            speed = 1 if "pch-2-" in self.current_animation else 2
+            if self.k_frame_counter >= speed:
+                self.k_frame_counter = 0
+                if self.frame_index < len(anim_frames) - 1:
+                    self.frame_index += 1
+                else:
+                    self.is_k_punch = False
+                    if self.on_ground and not self.is_jumping and not self.is_sitting:
+                        self.current_animation = "idle-right" if self.facing_right else "idle-left"
+                    elif self.is_jumping or not self.on_ground:
+                        self.current_animation = "jump-right" if self.facing_right else "jump-left"
+                    self.frame_index = 0
+            return
+        
         anim_frames = animations.get(self.current_animation, [])
         if not anim_frames:
             return
         
-        # Punch GIF: auto-advance
-        if self.current_animation in ["punch-gif-right", "punch-gif-left"]:
-            if self.punch_gif_active:
-                total = len(anim_frames)
-                self.punch_gif_counter += 1
-                if self.punch_gif_counter >= self.punch_gif_delay:
-                    self.punch_gif_counter = 0
-                    self.frame_index += 1
-                    if self.frame_index >= total:
-                        self.punch_gif_active = False
-                        self.frame_index = 0
-                        if self.on_ground:
-                            self.current_animation = "idle-right" if self.facing_right else "idle-left"
-                        else:
-                            self.current_animation = "jump-right" if self.facing_right else "jump-left"
-            else:
-                if self.on_ground:
-                    self.current_animation = "idle-right" if self.facing_right else "idle-left"
-                else:
-                    self.current_animation = "jump-right" if self.facing_right else "jump-left"
-                self.frame_index = 0
+        # Punch is handled by update() (combo GIF auto-advance or KEYDOWN) — don't touch frame_index
+        if self.is_punching:
             return
         
         self.frame_counter += 1
@@ -749,10 +789,6 @@ class Player:
                     self.current_animation = "idle-right" if self.facing_right else "idle-left"
                     self.frame_index = 0
                 # Sit animations are static (single frame)
-                return
-            
-            # Punch controlled manually by KEYDOWN - no auto-advance
-            if self.is_punching:
                 return
 
             # Jump animation (original GIF: falling)
@@ -839,7 +875,29 @@ class Player:
         self.current_animation = "swing-right" if self.facing_right else "swing-left"
 
     def start_combo_frame(self, step):
-        self._apply_frame_data(GROUND_COMBO[step])
+        cidx = GROUND_COMBO[step]
+        name = COMBO_FRAMES[cidx][0]
+        if name.endswith("-gif"):
+            gif_n = cidx - 8  # 9→1, 10→2, ..., 13→5
+            side = "right" if self.facing_right else "left"
+            gif_name = f"pch-{gif_n}-{side}"
+            gif_frames = animations.get(gif_name, [])
+            if not gif_frames:
+                self.combo_gif_active = False
+                return
+            self.combo_gif_active = True
+            self.combo_gif_frame = 0
+            self.combo_gif_counter = 0
+            self.combo_gif_speed = COMBO_FRAMES[cidx][1]
+            self.combo_gif_total = len(gif_frames)
+            self.current_animation = gif_name
+            self.frame_index = 0
+            self.frame_data = COMBO_FRAMES[cidx]
+            self.punch_display_timer = len(gif_frames) * self.combo_gif_speed + 10
+            self.combo_timer = self.combo_timeout
+            self.input_buffer = 0
+        else:
+            self._apply_frame_data(cidx)
 
     def start_special_frame(self, combo_idx):
         """Activa un frame específico por índice de COMBO_FRAMES (fuera del patrón)."""
@@ -854,7 +912,7 @@ class Player:
         if not chargeable:
             self.charge_timer = 0
             return
-        if keys[pygame.K_f]:
+        if keys[pygame.K_l]:
             self.charge_timer += 1
             if self.charge_timer >= 12:
                 self.punch_display_timer = max(self.punch_display_timer, 4)
@@ -998,7 +1056,7 @@ while running:
             if event.key == pygame.K_2:
                 player.health = min(player.max_health, player.health + 10)
             # Golpe (F) — secuencia ordenada 0→1→2→...→8
-            if event.key == pygame.K_f and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.punch_gif_active:
+            if event.key == pygame.K_l and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.is_k_punch:
                 if player.is_punching:
                     if player.combo_step >= player.total_combo_frames:
                         continue
@@ -1016,20 +1074,26 @@ while running:
                     player.is_punching = True
                     player.current_animation = "punch-right" if player.facing_right else "punch-left"
                 else:
+                    # L en el aire → p-t-ii air attack
+                    player.is_air_attacking = True
+                    player.current_animation = "air-attack-right" if player.facing_right else "air-attack-left"
+                    player.frame_index = 0
                     continue
                 player.start_combo_frame(player.combo_step)
                 player.combo_step += 1
             
-            # K: Punch GIF (frame por frame como F)
-            if event.key == pygame.K_k and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.is_punching and not player.punch_gif_active:
+            # K: ciclo pch-i → pch-v (GIF completo auto-play)
+            if event.key == pygame.K_k and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.is_punching and not player.is_k_punch:
                 if player.on_ground:
-                    player.punch_gif_active = True
-                    player.punch_gif_counter = 0
+                    player.is_k_punch = True
                     player.frame_index = 0
-                    player.current_animation = "punch-gif-right" if player.facing_right else "punch-gif-left"
+                    player.k_frame_counter = 0
+                    step = player.k_step + 1
+                    player.current_animation = f"pch-{step}-right" if player.facing_right else f"pch-{step}-left"
+                    player.k_step = (player.k_step + 1) % 5
             
             # G: w-i (golpe pesado especial)
-            if event.key == pygame.K_g and player.on_ground and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.punch_gif_active and player.combo_step < player.total_combo_frames:
+            if event.key == pygame.K_p and player.on_ground and not player.is_crouching and not player.is_swinging and not player.is_blocking and not player.is_stealth and not player.is_k_punch and player.combo_step < player.total_combo_frames:
                 if not player.is_punching:
                     player.is_punching = True
                     player.current_animation = "punch-right" if player.facing_right else "punch-left"
@@ -1037,13 +1101,13 @@ while running:
                 player.combo_step += 1
 
             # R: Web-shooter
-            if event.key == pygame.K_r and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting and not player.is_blocking and not player.is_stealth:
+            if event.key == pygame.K_o and player.on_ground and not player.is_punching and not player.is_swinging and not player.is_crouching and not player.is_web_shooting and not player.is_blocking and not player.is_stealth:
                 player.is_web_shooting = True
                 player.frame_index = 0
                 player.current_animation = "wsh-right" if player.facing_right else "wsh-left"
 
             # H: Stealth — automatic ceiling rise + teleport (no revert)
-            if event.key == pygame.K_h and player.on_ground and not player.is_stealth and not player.is_punching and not player.punch_gif_active and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_blocking and not player.is_turning and not player.is_sitting and not player.is_air_attacking and not player.is_somersaulting:
+            if event.key == pygame.K_h and player.on_ground and not player.is_stealth and not player.is_punching and not player.is_k_punch and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_blocking and not player.is_turning and not player.is_sitting and not player.is_air_attacking and not player.is_somersaulting:
                     # Activate stealth rising
                     player.is_stealth = True
                     player.stealth_rising = True
@@ -1054,21 +1118,21 @@ while running:
                     player.frame_index = 0
 
             # C: Shield toggle
-            if event.key == pygame.K_c:
+            if event.key == pygame.K_m:
                 if player.is_blocking:
                     player.is_blocking = False
                     if player.on_ground:
                         player.current_animation = "idle-right" if player.facing_right else "idle-left"
                     else:
                         player.current_animation = "jump-right" if player.facing_right else "jump-left"
-                elif not player.is_punching and not player.punch_gif_active and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_sitting and not player.is_turning and not player.is_stealth:
+                elif not player.is_punching and not player.is_k_punch and not player.is_swinging and not player.is_web_shooting and not player.is_crouching and not player.is_sitting and not player.is_turning and not player.is_stealth:
                     player.is_blocking = True
                     player.vel_x = 0
                     player.current_animation = "shield-right" if player.facing_right else "shield-left"
                     player.frame_index = 0
 
             # E: Swing — advance frame; if already swinging, hop + re-swing
-            if event.key == pygame.K_e and not player.is_crouching and not player.is_punching and not player.punch_gif_active and not player.is_blocking and not player.is_stealth and player.swing_hop_timer == 0:
+            if event.key == pygame.K_i and not player.is_crouching and not player.is_punching and not player.is_k_punch and not player.is_blocking and not player.is_stealth and player.swing_hop_timer == 0:
                 player.swing_seq_pos = (player.swing_seq_pos + 1) % len(SWING_SEQUENCE)
                 frame_idx = SWING_SEQUENCE[player.swing_seq_pos]
                 player.frame_index = frame_idx
@@ -1093,6 +1157,7 @@ while running:
                 else:
                     player_center_y = player.y + player.height // 2
                     player.is_swinging = True
+                    player.is_air_attacking = False
                     player.is_somersaulting = False
                     player.somersault_angle = 0
                     player.swing_pivot_x = player.x + player.width // 2
@@ -1105,30 +1170,7 @@ while running:
                     player.is_jumping = False
                     player.jump_phase = None
 
-            # Q: Catapulta — sw-ii (recto↑) o sw-iii (diagonal)
-            if event.key == pygame.K_q and not player.is_crouching and not player.is_punching and not player.punch_gif_active and not player.is_blocking and not player.is_stealth:
-                if player.is_swinging:
-                    player.is_swinging = False
-                else:
-                    player.vel_x = 0
-                    player.vel_y = 0
-                    player.on_ground = False
-                    player.is_jumping = False
-                    player.jump_phase = None
-                dir = 1 if player.facing_right else -1
-                if player.facing_right:
-                    player.vel_x = dir * 35
-                    player.vel_y = -25
-                    player.frame_index = 1  # sw-ii
-                else:
-                    player.vel_x = dir * 45
-                    player.vel_y = -20
-                    player.frame_index = 2  # sw-iii
-                player.on_ground = False
-                player.is_jumping = True
-                player.jump_phase = "descend"
-                player.current_animation = "swing-right" if player.facing_right else "swing-left"
-                player.swing_launched = True
+            # J: reservado para uso futuro
 
             # SPACE durante balanceo → soltar
             if event.key == pygame.K_SPACE and player.is_swinging and not player.is_stealth:
@@ -1188,9 +1230,10 @@ while running:
     instructions = [
         "[←→] or [A][D]  Move",
         "[SPACE]  Jump / Release swing",
-        "[F]  Punch  |  [G]  w-i (heavy)  |  [H]  Stealth",
-        "[C]  Shield  |  [E]  Swing  |  [Q]  Catapult  |  [R]  Web-shooter",
-        "[ESC]  Exit",
+        "[L]  Combo (suelo)  |  [L] en aire = Air attack",
+        "[K]  PCH combo (suelo)  |  [P]  w-i (heavy)",
+        "[I]  Swing  |  [O]  Web-shooter  |  [M]  Shield",
+        "[H]  Stealth  |  [ESC]  Exit",
         "[1]  Damage  |  [2]  Heal"
     ]
     for i, text in enumerate(instructions):

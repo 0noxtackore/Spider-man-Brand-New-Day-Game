@@ -26,24 +26,25 @@ Inspired by the classic arcade beat-'em-up feel, the game focuses on fluid movem
 - **Sit-to-Idle** — After landing from a run, the character sits briefly before standing still.
 
 ### Combat
-- **Combo System** — Press F to attack. Successive hits chain into a 21-step ground combo (3 phases × 7 hits).
-- **Heavy Punch** — Press G (on ground) to execute "w-i", a powerful blow that launches the enemy (and yourself) into the air.
-- **Charge Attacks** — Hold F during certain combo frames to charge; release for an enhanced hit.
+- **Combo System** — Press L to attack. Successive hits chain into a 29-frame ground combo (3 phases × 8 hits + 5 pch GIF finishers).
+- **PCH Combo** — Press K (on ground) to unleash a full auto-play pch GIF sequence (pch-i through pch-v).
+- **Heavy Punch** — Press P (on ground) to execute "w-i", a powerful blow that launches the enemy (and yourself) into the air.
+- **Charge Attacks** — Hold L during certain combo frames to charge; release for an enhanced hit.
 - **Combo Memory** — The combo timer resets on each hit; idle too long and the chain resets.
+- **Air Attack** — Press L while airborne to perform a p-t-ii air kick with fast fall.
 
 ### Shield
-- **C** (toggle) — Raises a shield using `sh-right.png` / `sh-left.png`. Blocks horizontal movement and prevents attacks. Press C again to lower.
+- **M** (toggle) — Raises a shield. Blocks horizontal movement and prevents attacks. Press M again to lower.
 
 ### Stealth / Ceiling Hang
 - **H** (toggle) — Hangs upside down from the ceiling using `hf.png`. Character rises automatically toward the top of the screen; camera stays fixed. Once the character goes off-screen, they teleport to a different X position (depending on facing direction) and fall back down. Press H while rising to cancel and fall immediately.
 
 ### Web-Shooter
-- **R** key (ground only) — Fires a web-shooter animation. Interruptible by combat.
+- **O** key (ground only) — Fires a web-shooter animation. Interruptible by combat.
 
-### Swing & Catapult
-- **E** — Toggle web-swing. A pendulum simulation with gravity, damping, and pump mechanics.
-- **E while swinging** — Hop off the swing with preserved momentum, then auto-re-swing.
-- **Q** — Catapult launch. If swinging, drops the web; if on ground, launches in a fixed arc.
+### Swing
+- **I** — Toggle web-swing. A pendulum simulation with gravity, damping, and pump mechanics.
+- **I while swinging** — Hop off the swing with preserved momentum, then auto-re-swing.
 - **Space while swinging** — Release the web at any time with current velocity.
 
 ### Camera
@@ -65,13 +66,13 @@ Inspired by the classic arcade beat-'em-up feel, the game focuses on fluid movem
 | ← → / A D | Move left / right |
 | SPACE | Jump (turn-based: odd=normal, even=flip) |
 | ↓ / S | Crouch / Sit |
-| F | Punch (combo chain) |
-| G | Heavy punch "w-i" (ground only) |
-| C | Shield toggle |
+| L | Combo chain (ground) / Air attack (airborne) |
+| K | PCH GIF combo (ground) |
+| P | Heavy punch "w-i" (ground only) |
+| M | Shield toggle |
+| O | Web-shooter (ground only) |
+| I | Start swing / Hop off swing |
 | H | Stealth — automatic ceiling rise + teleport |
-| R | Web-shooter (ground only) |
-| E | Start swing / Hop off swing |
-| Q | Catapult launch |
 | 1 | Damage self (testing) |
 | 2 | Heal self (testing) |
 | ESC | Exit game |
@@ -84,15 +85,15 @@ This game is a **work in progress** — each feature is built on demand, tested,
 
 - [x] Player movement & jumping
 - [x] Turn-based jump system (normal / olympic flip)
-- [x] Ground combo system (3 phases × 7 hits)
-- [x] Heavy punch (w-i) with launch
+- [x] Ground combo system (3 phases × 8 hits + 5 GIF finishers)
+- [x] Heavy punch (w-i) with launch (P)
 - [x] Charge attacks
 - [x] Crouch & sit mechanics
 - [x] Direction turn animation
 - [x] Shield / block toggle
 - [x] Web-shooter (ground)
-- [x] Web-swing (pendulum physics)
-- [x] Catapult launch
+- [x] Web-swing (pendulum physics) (I)
+- [x] PCH GIF combo (K)
 - [x] Stealth / ceiling hang (hf.png)
 - [x] Vertical camera follow
 - [x] Screen shake on impacts
