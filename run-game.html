@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spider-Man - Brand New Day</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a12;
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+  }
+  h1 {
+    font-size: clamp(3rem, 10vw, 7rem);
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, #e23636, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+  }
+  .sub {
+    font-size: clamp(1rem, 3vw, 1.8rem);
+    color: #889;
+    letter-spacing: 6px;
+    margin-top: 8px;
+  }
+  .modules {
+    display: flex;
+    gap: 24px;
+    margin: 40px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .module {
+    background: #161625;
+    border: 1px solid #2a2a40;
+    border-radius: 12px;
+    padding: 20px 30px;
+    min-width: 140px;
+    transition: .2s;
+  }
+  .module span { font-size: 1.2rem; color: #e23636; display: block; }
+  .module small { font-size: .8rem; color: #667; }
+  .btn {
+    background: #e23636;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 48px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .btn:hover { background: #ff5252; transform: scale(1.05); }
+  .note { margin-top: 32px; color: #556; font-size: .85rem; max-width: 400px; }
+</style>
+</head>
+<body>
+  <h1>SPIDER-MAN</h1>
+  <div class="sub">BRAND NEW DAY</div>
+  <div class="modules">
+    <div class="module"><span>START</span><small>Title Screen</small></div>
+    <div class="module"><span>COSTUMES</span><small>Suit Selector</small></div>
+  </div>
+  <button class="btn" onclick="alert('Run run-game.bat or run-game.py in the game folder.')">▶ LAUNCH GAME</button>
+  <div class="note">Press <b>ENTER</b> on the title screen to play the start animation, then select your suit with <b>X</b>.</div>
+</body>
+</html>

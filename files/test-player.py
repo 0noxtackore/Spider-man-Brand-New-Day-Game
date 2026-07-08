@@ -5,6 +5,16 @@ import math
 import random
 from PIL import Image, ImageFilter
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resolve_path(path):
+    if not path:
+        return path
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(BASE_DIR, path))
+
 # Initialization
 pygame.init()
 pygame.mixer.init()
@@ -58,6 +68,7 @@ HEALTH_ICON_PATH = "images-game/health-character/Spider-man.png"
 def load_gif_frames(path, scale_factor=1.0):
     """Load GIF frames using PIL with transparency and uniform sizing"""
     frames = []
+    path = resolve_path(path)
     if not os.path.exists(path):
         print(f"Not found: {path}")
         return frames
@@ -88,6 +99,7 @@ def load_gif_frames(path, scale_factor=1.0):
 
 def load_single_image(path, scale_factor=1.0):
     """Load a single PNG/JPG image"""
+    path = resolve_path(path)
     if not os.path.exists(path):
         print(f"Not found: {path}")
         return None
@@ -104,6 +116,7 @@ def load_single_image(path, scale_factor=1.0):
 def load_png_sequence_from_dir(dir_path, scale_factor=1.0, blur_radius=0):
     """Load all PNGs from a directory in alphabetical order, with optional blur"""
     frames = []
+    dir_path = resolve_path(dir_path)
     if not os.path.exists(dir_path):
         print(f"Directory not found: {dir_path}")
         return frames
@@ -129,6 +142,7 @@ def load_png_sequence_from_dir(dir_path, scale_factor=1.0, blur_radius=0):
 def load_specific_pngs(dir_path, filenames, scale_factor=1.0, blur_radius=0):
     """Carga PNGs específicos de un directorio, con blur opcional."""
     frames = []
+    dir_path = resolve_path(dir_path)
     for fname in filenames:
         path = os.path.join(dir_path, fname)
         if not os.path.exists(path):
@@ -193,7 +207,7 @@ PLAYER_SCALE = 0.3
 RUN_SCALE = 0.25  # Smaller scale for run-left and run-right
 JUMP_SCALE = 0.25  # Smaller scale for jump-left and jump-right
 
-# Cargar todas las animaciones
+# Cargar solo las animaciones básicas al inicio para acelerar el arranque
 animations = {
     "idle-right": load_gif_frames(ANIMATION_PATHS["idle-right"], PLAYER_SCALE),
     "idle-left": load_gif_frames(ANIMATION_PATHS["idle-left"], PLAYER_SCALE),
@@ -207,32 +221,23 @@ animations = {
     "sit-left": [load_single_image(ANIMATION_PATHS["sit-left"], PLAYER_SCALE)],
     "sit-center": [load_single_image(ANIMATION_PATHS["sit-center"], PLAYER_SCALE)],
     "sit-back": [load_single_image(ANIMATION_PATHS["sit-back"], PLAYER_SCALE)],
-    "climb-right": load_gif_frames(ANIMATION_PATHS["climb-right"], PLAYER_SCALE),
-    "climb-left": load_gif_frames(ANIMATION_PATHS["climb-left"], PLAYER_SCALE),
-    "pch-1-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-i.gif"), PLAYER_SCALE),
-    "pch-2-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-ii.gif"), PLAYER_SCALE),
-    "pch-3-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-iii.gif"), PLAYER_SCALE),
-    "pch-4-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-iv.gif"), PLAYER_SCALE),
-    "pch-5-right": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-right"], "pch-v.gif"), PLAYER_SCALE),
-    "pch-1-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-i.gif"), PLAYER_SCALE),
-    "pch-2-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-ii.gif"), PLAYER_SCALE),
-    "pch-3-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-iii.gif"), PLAYER_SCALE),
-    "pch-4-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-iv.gif"), PLAYER_SCALE),
-    "pch-5-left": load_gif_frames(os.path.join(ANIMATION_PATHS["pch-left"], "pch-v.gif"), PLAYER_SCALE),
-    "punch-right": load_png_sequence_from_dir(ANIMATION_PATHS["punch-right"], PLAYER_SCALE, blur_radius=1.5),
-    "punch-left": load_png_sequence_from_dir(ANIMATION_PATHS["punch-left"], PLAYER_SCALE, blur_radius=1.5),
-    "air-attack-right": load_specific_pngs(ANIMATION_PATHS["punch-right"], AIR_ATTACK_FILES, PLAYER_SCALE, blur_radius=1.5),
-    "air-attack-left": load_specific_pngs(ANIMATION_PATHS["punch-left"], AIR_ATTACK_FILES, PLAYER_SCALE, blur_radius=1.5),
-    "swing-right": load_png_sequence_from_dir(ANIMATION_PATHS["swing-right"], PLAYER_SCALE, blur_radius=1.5),
-    "swing-left": load_png_sequence_from_dir(ANIMATION_PATHS["swing-left"], PLAYER_SCALE, blur_radius=1.5),
-    "wsh-right": load_gif_frames(ANIMATION_PATHS["wsh-right"], PLAYER_SCALE),
-    "wsh-left": load_gif_frames(ANIMATION_PATHS["wsh-left"], PLAYER_SCALE),
     "shield-right": [load_single_image(ANIMATION_PATHS["shield-right"], PLAYER_SCALE)],
     "shield-left": [load_single_image(ANIMATION_PATHS["shield-left"], PLAYER_SCALE)],
     "flip-right": [load_single_image(ANIMATION_PATHS["flip-right"], PLAYER_SCALE)],
     "flip-left": [load_single_image(ANIMATION_PATHS["flip-left"], PLAYER_SCALE)],
     "stealth": [load_single_image(ANIMATION_PATHS["stealth"], PLAYER_SCALE)],
 }
+
+# Carga diferida para animaciones más pesadas
+lazy_animations = {}
+
+
+def ensure_animation(name, loader):
+    if name not in lazy_animations and name not in animations:
+        lazy_animations[name] = loader()
+        animations[name] = lazy_animations[name]
+    return animations.get(name, [])
+
 
 # Load health icon (larger, 0.25 instead of 0.15)
 health_icon = load_single_image(HEALTH_ICON_PATH, 0.29)
@@ -715,6 +720,8 @@ class Player:
                     # Re-apply wsh animation (movement code may have overridden it)
                     self.current_animation = "wsh-right" if self.facing_right else "wsh-left"
             if self.is_web_shooting:
+                if self.current_animation in ["wsh-right", "wsh-left"] and not animations.get(self.current_animation):
+                    animations[self.current_animation] = load_gif_frames(ANIMATION_PATHS[self.current_animation], PLAYER_SCALE)
                 anim_frames = animations.get(self.current_animation, [])
                 if self.frame_index < len(anim_frames) - 1:
                     self.frame_index += 1
@@ -734,6 +741,10 @@ class Player:
         
         # K punch auto-play (2 ticks per frame = 2x speed)
         if self.is_k_punch and (self.current_animation.startswith("pch-") and (self.current_animation.endswith("-right") or self.current_animation.endswith("-left"))):
+            if not animations.get(self.current_animation):
+                side = "right" if self.facing_right else "left"
+                step = self.current_animation.split("-")[1]
+                animations[self.current_animation] = load_gif_frames(os.path.join(ANIMATION_PATHS[f"pch-{side}"], f"pch-{step}.gif"), PLAYER_SCALE)
             anim_frames = animations.get(self.current_animation, [])
             if not anim_frames:
                 self.is_k_punch = False
@@ -753,6 +764,19 @@ class Player:
                     self.frame_index = 0
             return
         
+        if self.current_animation in ["climb-right", "climb-left", "punch-right", "punch-left", "swing-right", "swing-left", "air-attack-right", "air-attack-left", "wsh-right", "wsh-left"] and not animations.get(self.current_animation):
+            if self.current_animation in ["climb-right", "climb-left"]:
+                animations[self.current_animation] = load_gif_frames(ANIMATION_PATHS[self.current_animation], PLAYER_SCALE)
+            elif self.current_animation in ["punch-right", "punch-left"]:
+                animations[self.current_animation] = load_png_sequence_from_dir(ANIMATION_PATHS[self.current_animation], PLAYER_SCALE, blur_radius=1.5)
+            elif self.current_animation in ["swing-right", "swing-left"]:
+                animations[self.current_animation] = load_png_sequence_from_dir(ANIMATION_PATHS[self.current_animation], PLAYER_SCALE, blur_radius=1.5)
+            elif self.current_animation in ["air-attack-right", "air-attack-left"]:
+                side = "right" if self.current_animation.endswith("right") else "left"
+                animations[self.current_animation] = load_specific_pngs(ANIMATION_PATHS[f"punch-{side}"], AIR_ATTACK_FILES, PLAYER_SCALE, blur_radius=1.5)
+            elif self.current_animation in ["wsh-right", "wsh-left"]:
+                animations[self.current_animation] = load_gif_frames(ANIMATION_PATHS[self.current_animation], PLAYER_SCALE)
+
         anim_frames = animations.get(self.current_animation, [])
         if not anim_frames:
             return
@@ -946,6 +970,9 @@ class Player:
             base = "stealth"
             base_frames = animations.get(base, [])
             if not base_frames:
+                animations[base] = [load_single_image(ANIMATION_PATHS["stealth"], PLAYER_SCALE)]
+                base_frames = animations[base]
+            if not base_frames:
                 return
             frame = base_frames[0]
             frame_rect = frame.get_rect()
@@ -958,6 +985,9 @@ class Player:
         if self.is_somersaulting:
             base = "flip-right" if self.facing_right else "flip-left"
             base_frames = animations.get(base, [])
+            if not base_frames:
+                animations[base] = [load_single_image(ANIMATION_PATHS[base], PLAYER_SCALE)]
+                base_frames = animations[base]
             if not base_frames:
                 return
             frame = base_frames[self.frame_index % len(base_frames)]

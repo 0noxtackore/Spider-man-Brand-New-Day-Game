@@ -1,2 +1,3 @@
 @echo off
-python test-player.py
+cd /d "%~dp0"
+python files\test-player.py
