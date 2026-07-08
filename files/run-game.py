@@ -2,7 +2,15 @@ import os
 import sys
 import pygame
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT_DIR)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    import protect_assets
+    protect_assets.protect_all()
+except Exception:
+    pass
 
 pygame.init()
 pygame.mixer.init()

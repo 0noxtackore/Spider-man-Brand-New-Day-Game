@@ -1,6 +1,17 @@
 import pygame
 import sys
 import os
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+try:
+    import protect_assets
+    protect_assets.protect_all()
+except Exception:
+    pass
+
 import asset_manager  # Migrado a tu gestor centralizado optimizado
 
 ORIG_W, ORIG_H = 1920, 1080

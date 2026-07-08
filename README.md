@@ -159,3 +159,15 @@ Every mechanic is implemented, tested, and committed before moving forward. This
 <p align="center">
   <sub>Built with Pygame — Spider-man Brand New Day &copy; 2026</sub>
 </p>
+
+---
+
+<p align="center">
+  <img src="images-game/ui-branding/Branding%200noxtackore.png" alt="0noxtackore Branding" width="400">
+</p>
+
+<p align="center">
+  <strong>0noxtackore</strong> — indie game studio founded by a single developer with a vision.<br>
+  One man leading, coding, designing, and bringing ideas to life.<br>
+  Leader and employee at the same time.
+</p>
