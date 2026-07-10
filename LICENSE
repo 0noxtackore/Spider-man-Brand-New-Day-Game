@@ -24,36 +24,31 @@ SOFTWARE.
 
 ## Ownership & Intellectual Property Notice
 
-**Spider-man Brand New Day** (hereinafter referred to as "the Game") is an original
-video game created and developed by **0noxtackore**. All game code, original artwork,
-game design, and unique creative content are the sole intellectual property of
-0noxtackore.
+**Spider-Man: Brand New Day** (hereinafter referred to as "the Game") is a
+non-commercial, fan-made video game whose codebase, game systems, animations,
+level designs, and all original creative content were single-handedly developed
+by **0noxtackore**. All original work — including but not limited to source code,
+art assets, game mechanics, and documentation — constitutes the intellectual
+property of 0noxtackore and is protected under applicable copyright law.
 
-The Game is inspired by and makes reference to characters, settings, and elements
-from the Marvel Universe, including but not limited to "Spider-Man", which are
-registered trademarks of **Marvel Entertainment, LLC** and its subsidiaries.
-These trademarks and the associated characters are used purely as a source of
-inspiration and stylistic reference. No ownership of Marvel's intellectual property
-is claimed, asserted, or implied.
+The characters, storylines, names, likenesses, and all related elements from the
+Marvel Universe referenced within this Game — including but not limited to
+"Spider-Man" — are the exclusive property of **Marvel Entertainment, LLC** and
+its parent company, **The Walt Disney Company**. These elements are used
+exclusively under the principles of fair use and fan creation, solely for purposes of
+homage, inspiration, and creative expression.
 
-0noxtackore is the sole and legitimate owner of the Game's original codebase,
-game systems, animations, level designs, and all other original content created
-for this project. This ownership extends to all past, present, and future versions
-of the Game.
+No claim of ownership, affiliation, endorsement, or sponsorship by Marvel
+Entertainment, LLC, The Walt Disney Company, or any of their subsidiaries is
+made or implied through this project.
 
-## Use of the "Spider-Man" Name
+## Disclaimer
 
-The name "Spider-Man" and related Marvel character names are used within the Game
-solely for stylistic and thematic purposes within the context of this fan project.
-This usage is not authorized by, endorsed by, or affiliated with Marvel Entertainment,
-LLC, The Walt Disney Company, or any of their subsidiaries.
+This Game is a tribute project created entirely by 0noxtackore out of admiration
+for the Marvel Universe. It is distributed free of charge, generates no revenue,
+and is intended solely for educational and entertainment purposes. The developer
+fully acknowledges and respects the intellectual property rights of Marvel
+Entertainment, LLC and its affiliates.
 
-The inclusion of these names in the Game's title, codebase, and documentation is
-intended as a creative reference within the fictional universe of the Game and
-does not constitute a claim of ownership over the "Spider-Man" trademark or any
-associated Marvel intellectual property.
-
-This project is a non-commercial, educational, and fan-made work. No revenue is
-generated from the distribution or use of this software. If you are a representative
-of Marvel Entertainment and believe this project infringes upon your rights, please
-contact the author at the repository's issue tracker.
+Should any rights holder believe this project conflicts with their interests,
+please open an issue on the repository for prompt resolution.
