@@ -1,0 +1,42 @@
+{
+  "sun/background": {
+    "frames": 80,
+    "cols": 10,
+    "rows": 8,
+    "frame_w": 1920,
+    "frame_h": 1080,
+    "ext": "jpg"
+  },
+  "night/background": {
+    "frames": 80,
+    "cols": 10,
+    "rows": 8,
+    "frame_w": 1920,
+    "frame_h": 1080,
+    "ext": "jpg"
+  },
+  "spider-man/ps-spidey": {
+    "frames": 80,
+    "cols": 10,
+    "rows": 8,
+    "frame_w": 1920,
+    "frame_h": 1080,
+    "ext": "png"
+  },
+  "spider-man/start-spidey": {
+    "frames": 80,
+    "cols": 10,
+    "rows": 8,
+    "frame_w": 1920,
+    "frame_h": 1080,
+    "ext": "png"
+  },
+  "spider-effect": {
+    "frames": 40,
+    "cols": 10,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080,
+    "ext": "png"
+  }
+}

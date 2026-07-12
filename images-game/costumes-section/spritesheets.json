@@ -1,0 +1,135 @@
+{
+  "shadow": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-1": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-2": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-3": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-4": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-5": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-6": {
+    "frames": 19,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-7": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-8": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-9": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-10": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-11": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-12": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-13": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-14": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-15": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-16": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-17": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  },
+  "suit-pose-18": {
+    "frames": 20,
+    "cols": 5,
+    "rows": 4,
+    "frame_w": 1920,
+    "frame_h": 1080
+  }
+}

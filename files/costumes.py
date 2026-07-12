@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+import json
 import threading
 import numpy as np
 from PIL import Image
@@ -19,25 +20,17 @@ def load_png(path, w, h, do_scale=True):
         surf.fill((0, 0, 0, 0))
         return surf
 
-def load_gif_frames(path, w, h, result_dict=None, key=None):
-    frames_data = []
-    full = os.path.join(ASSETS, path)
-    if not os.path.exists(full):
-        if result_dict is not None and key is not None:
-            result_dict[key] = []
-        return frames_data
-    try:
-        gif = Image.open(full)
-        for i in range(gif.n_frames):
-            gif.seek(i)
-            frame = gif.convert("RGBA")
-            raw = frame.tobytes()
-            frames_data.append((frame.size, raw))
-    except Exception as e:
-        print(f"Error loading {path}: {e}")
-    if result_dict is not None and key is not None:
-        result_dict[key] = frames_data
-    return frames_data
+def load_spritesheet_frames(sheet_path, meta):
+    sheet = pygame.image.load(sheet_path).convert_alpha()
+    frames = []
+    cols = meta["cols"]
+    fw, fh = meta["frame_w"], meta["frame_h"]
+    for i in range(meta["frames"]):
+        col = i % cols
+        row = i // cols
+        rect = pygame.Rect(col * fw, row * fh, fw, fh)
+        frames.append(sheet.subsurface(rect).copy())
+    return frames
 
 def make_multiply_surface(surf):
     out = surf.copy()
@@ -64,6 +57,20 @@ SUIT_BBOXES = {
     2: (174, 227, 305, 1078),
     3: (238, 227, 369, 1078),
     4: (314, 226, 445, 1078),
+    5: (385, 227, 509, 1077),
+    6: (447, 228, 590, 1078),
+    7: (527, 227, 659, 1079),
+    8: (583, 228, 753, 1080),
+    9: (707, 226, 839, 1079),
+    10: (794, 227, 918, 1069),
+    11: (851, 227, 985, 1067),
+    12: (930, 229, 1054, 1067),
+    13: (1003, 224, 1127, 1064),
+    14: (1079, 228, 1203, 1054),
+    15: (1158, 227, 1293, 1053),
+    16: (1201, 229, 1368, 1055),
+    17: (1309, 227, 1438, 1077),
+    18: (1373, 227, 1497, 1077),
 }
 
 _assets = {}
@@ -73,7 +80,7 @@ def load_fast(screen, w, h):
     global _assets
     sx = w / ORIG_W; sy = h / ORIG_H
     crops = {}
-    for i in range(1, 5):
+    for i in range(1, 19):
         full = load_png(f"suits/{i}.png", ORIG_W, ORIG_H, do_scale=False)
         cropped, _ = crop_content(full)
         crops[i] = cropped
@@ -82,7 +89,7 @@ def load_fast(screen, w, h):
         p = os.path.join("images-game/key button", f"{name}.png")
         try: keys[name] = pygame.image.load(p).convert_alpha()
         except: keys[name] = pygame.Surface((40, 40), pygame.SRCALPHA)
-    arrows = {i: load_png(f"arrow/{i}.png", w, h) for i in range(1, 5)}
+    arrows = {i: load_png(f"arrow/{i}.png", w, h) for i in range(1, 19)}
     spidey_path = "images-game/notification-icon/spidey-icon.png"
     try: spidey = pygame.image.load(spidey_path).convert_alpha()
     except: spidey = pygame.Surface((64, 64), pygame.SRCALPHA)
@@ -93,11 +100,15 @@ def load_fast(screen, w, h):
     sfx = {"move": ls("move-costume"), "quit": ls("quit-game"), "select": ls("select-costume"), "other": ls("other")}
     bg = load_png("backgroung.png", w, h)
     displays = {}
-    for i in range(1, 5):
+    big_surfs = {}
+    for i in range(1, 19):
         bx1, by1, bx2, by2 = SUIT_BBOXES[i]
         ow = bx2 - bx1; oh = by2 - by1
         dw = max(1, int(ow * sx)); dh = max(1, int(oh * sy))
-        displays[i] = {"surf": pygame.transform.scale(crops[i], (dw, dh)), "x": int(bx1 * sx), "y": int(by1 * sy), "w": dw, "h": dh}
+        scaled = pygame.transform.scale(crops[i], (dw, dh))
+        displays[i] = {"surf": scaled, "x": int(bx1 * sx), "y": int(by1 * sy), "w": dw, "h": dh}
+        bw = max(1, int(dw * 1.15)); bh = max(1, int(dh * 1.15))
+        big_surfs[i] = pygame.transform.scale(scaled, (bw, bh))
     cf = pygame.font.SysFont("arial", 16, bold=True)
     ctrl = []
     for label_text, key_name in [("QUIT", "esc"), ("BACK", "a"), ("LEFT", "left"), ("RIGHT", "right"), ("SELECT", "x"), ("MAP", "z"), ("SWING TIME", "p")]:
@@ -114,48 +125,76 @@ def load_fast(screen, w, h):
     icon = pygame.transform.smoothscale(spidey, (100, 100))
     _assets = {
         "sx": sx, "sy": sy, "bg": bg,
-        "displays": displays, "arrows": arrows,
+        "bg_suit": displays[18]["surf"],
+        "displays": displays, "big_surfs": big_surfs, "arrows": arrows,
         "ctrl_data": ctrl, "cx": w - 20 - tw, "cy": h - 20,
         "qf": qf, "qt": qt, "of": of, "icon": icon, "sfx": sfx,
     }
-    load_gifs_parallel(screen, w, h)
+    load_spritesheets_async(w, h)
 
-def load_gifs_parallel(screen, w, h):
-    global _assets
-    result_dict = {}
-    items = [("shadow", "shadow.gif")] + [(f"suit-pose-{i}", f"suit-pose/{i}.gif") for i in range(1, 5)]
-    threads = []
-    for key, path in items:
-        t = threading.Thread(target=load_gif_frames, args=(path, w, h, result_dict, key))
-        t.start()
-        threads.append(t)
-    for t in threads:
-        t.join()
-    shadow_data = result_dict.get("shadow", [])
-    if shadow_data:
-        shadow_surfs = []
-        for size, raw_bytes in shadow_data:
-            surf = pygame.image.fromstring(raw_bytes, size, "RGBA")
+def load_spritesheets_async(w, h):
+    thread = threading.Thread(target=load_spritesheets, args=(w, h), daemon=True)
+    thread.start()
+    return thread
+
+def _load_one_shadow(sheet_dir, metadata, w, h, result):
+    key = "shadow"
+    if key not in metadata:
+        result["shadow"] = []
+        return
+    sheet_path = os.path.join(sheet_dir, key + ".png")
+    frames_raw = load_spritesheet_frames(sheet_path, metadata[key])
+    shadow_surfs = []
+    for surf in frames_raw:
+        if surf.get_size() != (w, h):
+            surf = pygame.transform.scale(surf, (w, h))
+        shadow_surfs.append(make_multiply_surface(surf))
+    result["shadow"] = shadow_surfs
+
+def _load_one_pose(i, sheet_dir, metadata, w, h, result):
+    key = "suit-pose-" + str(i)
+    if key in metadata:
+        sheet_path = os.path.join(sheet_dir, key + ".png")
+        frames_raw = load_spritesheet_frames(sheet_path, metadata[key])
+        frames = []
+        for surf in frames_raw:
             if surf.get_size() != (w, h):
                 surf = pygame.transform.scale(surf, (w, h))
-            shadow_surfs.append(surf)
-        _assets["shadow"] = [make_multiply_surface(f) for f in shadow_surfs]
+            frames.append(surf)
+        result[i] = frames
     else:
+        result[i] = result.get(i - 1, [])
+
+def load_spritesheets(w, h):
+    global _assets
+    meta_path = os.path.join(ASSETS, "spritesheets.json")
+    if not os.path.exists(meta_path):
+        print("[Spritesheets] No se encontro spritesheets.json")
         _assets["shadow"] = []
-    suit_pose = {}
-    for i in range(1, 5):
-        data = result_dict.get(f"suit-pose-{i}", [])
-        if data:
-            frames = []
-            for size, raw_bytes in data:
-                surf = pygame.image.fromstring(raw_bytes, size, "RGBA")
-                if surf.get_size() != (w, h):
-                    surf = pygame.transform.scale(surf, (w, h))
-                frames.append(surf)
-            suit_pose[i] = frames
-        else:
-            suit_pose[i] = suit_pose.get(i - 1, [])
-    _assets["suit_pose"] = suit_pose
+        _assets["suit_pose"] = {}
+        return
+    with open(meta_path, "r") as f:
+        metadata = json.load(f)
+
+    sheet_dir = os.path.join(ASSETS, "spritesheets")
+    result_shadow = {}
+    result_pose = {}
+
+    threads = []
+    t = threading.Thread(target=_load_one_shadow, args=(sheet_dir, metadata, w, h, result_shadow))
+    t.start()
+    threads.append(t)
+
+    for i in range(1, 19):
+        t = threading.Thread(target=_load_one_pose, args=(i, sheet_dir, metadata, w, h, result_pose))
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
+    _assets["shadow"] = result_shadow.get("shadow", [])
+    _assets["suit_pose"] = result_pose
 
 def load_assets(screen, w, h):
     global _assets_loaded
@@ -168,8 +207,8 @@ def main_loop(screen, screen_width, screen_height):
         load_fast(screen, screen_width, screen_height)
     a = _assets
 
-    current_suit = 4
-    active_pose_suit = 4
+    current_suit = 1
+    active_pose_suit = 1
     gif_idx = 0
     gif_timer = 0
     gif_speed = 3
@@ -206,10 +245,10 @@ def main_loop(screen, screen_width, screen_height):
                         modal_choice = 0
                         if sfx["quit"]: sfx["quit"].play()
                     if event.key == pygame.K_LEFT:
-                        current_suit = 4 if current_suit == 1 else current_suit - 1
+                        current_suit = 18 if current_suit == 1 else current_suit - 1
                         if sfx["move"]: sfx["move"].play()
                     if event.key == pygame.K_RIGHT:
-                        current_suit = 1 if current_suit == 4 else current_suit + 1
+                        current_suit = 1 if current_suit == 18 else current_suit + 1
                         if sfx["move"]: sfx["move"].play()
                     if event.key == pygame.K_x:
                         active_pose_suit = current_suit
@@ -234,23 +273,24 @@ def main_loop(screen, screen_width, screen_height):
         if shadow_frames:
             screen.blit(shadow_frames[gif_idx % len(shadow_frames)], (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
-        pose_frames = suit_pose.get(active_pose_suit, [])
-        if pose_frames:
-            screen.blit(pose_frames[gif_idx % len(pose_frames)], (0, 0))
+        if current_suit != 18 and "bg_suit" in a:
+            d18 = a["displays"][18]
+            screen.blit(a["bg_suit"], (d18["x"], d18["y"]))
 
-        for i in range(1, 5):
+        for i in range(1, 19):
             if i != current_suit:
                 d = a["displays"][i]
                 screen.blit(d["surf"], (d["x"], d["y"]))
 
         d = a["displays"][current_suit]
-        scale = 1.15
-        sw = int(d["w"] * scale)
-        sh = int(d["h"] * scale)
-        big = pygame.transform.scale(d["surf"], (sw, sh))
-        bx = d["x"] - (sw - d["w"]) // 2
-        by = d["y"] - (sh - d["h"]) // 2
+        big = a["big_surfs"][current_suit]
+        bx = d["x"] - (big.get_width() - d["w"]) // 2
+        by = d["y"] - (big.get_height() - d["h"]) // 2
         screen.blit(big, (bx, by))
+
+        pose_frames = suit_pose.get(active_pose_suit, [])
+        if pose_frames:
+            screen.blit(pose_frames[gif_idx % len(pose_frames)], (0, 0))
 
         screen.blit(a["arrows"][current_suit], (0, 0))
 
