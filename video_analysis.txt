@@ -1,0 +1,3 @@
+menu-sun 1920x1080 center=RGB(180,157,131) black=1.1%
+menu-night 1920x1080 center=RGB(82,71,71) black=6.5%
+action 1920x1080 center=RGB(182,159,133) black=1.1%

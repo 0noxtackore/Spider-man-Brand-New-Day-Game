@@ -1,0 +1,2 @@
+file 'C:/Users/PC/Documents/PROGRAMATION/Python/Spider-man-Brand-New-Day-Game/images-game/main-game/videos-composites/_tmp_action.mp4'
+file 'C:/Users/PC/Documents/PROGRAMATION/Python/Spider-man-Brand-New-Day-Game/images-game/main-game/videos/spider-effect.mp4'
