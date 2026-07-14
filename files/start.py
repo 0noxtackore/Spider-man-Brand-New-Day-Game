@@ -87,7 +87,7 @@ def main_loop(s, sw, sh):
                     return None
                 if e.key == pygame.K_RETURN and not started:
                     started = True
-                    asset_manager.open_action(w, h)
+                    asset_manager.open_action(w, h, theme)
                 if e.key == pygame.K_TAB and not started:
                     theme = "night" if theme == "sun" else "sun"
                     last_theme_swap = now
@@ -133,7 +133,7 @@ def main_loop(s, sw, sh):
             screen.blit(to_surf, (sx + pw + kw, cy - to_surf.get_height() // 2))
 
         pygame.display.flip()
-        clock.tick(30)
+        clock.tick(60)
 
         if started:
             if not web_played and web_snd:

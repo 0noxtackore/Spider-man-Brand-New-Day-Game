@@ -6,7 +6,6 @@ from ffpyplayer.player import MediaPlayer
 ORIG_W, ORIG_H = 1920, 1080
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VIDEOS_MAIN = os.path.join(BASE_DIR, "images-game", "main-game", "videos-composites")
-VIDEOS_COST = os.path.join(BASE_DIR, "images-game", "costumes-section", "videos-composites")
 
 _player = None
 _last_frame = None
@@ -21,20 +20,12 @@ def open_video(path, loop=True):
     _loop = loop
     _eof = False
     _last_frame = None
-    for _ in range(40):
+    for _ in range(15):
         frame, val = _player.get_frame()
         if frame:
             _last_frame = _make_surface(frame)
             break
-        time.sleep(0.025)
-    _player.seek(0, relative=False)
-    time.sleep(0.05)
-    for _ in range(10):
-        frame, val = _player.get_frame()
-        if frame:
-            _last_frame = _make_surface(frame)
-            break
-        time.sleep(0.025)
+        time.sleep(0.015)
 
 
 def _make_surface(frame):
@@ -68,13 +59,6 @@ def get_frame(w, h):
     return surf
 
 
-def seek(pos=0):
-    global _eof
-    if _player:
-        _player.seek(pos, relative=False)
-        _eof = False
-
-
 def is_eof():
     return _eof
 
@@ -96,8 +80,8 @@ def open_menu_night(w, h):
     open_video(os.path.join(VIDEOS_MAIN, "start-menu-night.mp4"), loop=True)
 
 
-def open_action(w, h):
-    open_video(os.path.join(VIDEOS_MAIN, "start-action.mp4"), loop=False)
+def open_action(w, h, theme="sun"):
+    open_video(os.path.join(VIDEOS_MAIN, "start-action-{}.mp4".format(theme)), loop=False)
 
 
 
