@@ -67,6 +67,7 @@ SUIT_BBOXES = {
 }
 
 _assets = {}
+_load_event = threading.Event()
 
 
 def load_fast(screen, w, h):
@@ -103,6 +104,7 @@ def load_fast(screen, w, h):
 
     sfx = {"move": ls("move-costume"), "quit": ls("quit-game"), "select": ls("select-costume"), "other": ls("other")}
     bg = load_png("backgroung.png", w, h)
+
     displays = {}
     big_surfs = {}
     for i in range(1, 19):
@@ -138,19 +140,23 @@ def load_fast(screen, w, h):
         "ctrl_data": ctrl, "cx": w - 20 - tw, "cy": h - 20,
         "qf": qf, "qt": qt, "of": of, "icon": icon, "sfx": sfx,
     }
+    _load_event.set()
 
 
 def load_assets(screen, w, h):
     load_fast(screen, w, h)
 
 
-def _load_shadow(w, h):
-    if "shadow_frames" in _assets:
-        return _assets["shadow_frames"], _assets["shadow_durs"]
-    shadow_path = os.path.join(ASSETS, "shadow.gif")
+def _load_shadow(w, h, suit_num=1):
+    cache_key = "shadow_frames_noir" if suit_num == 18 else "shadow_frames"
+    dcache_key = "shadow_durs_noir" if suit_num == 18 else "shadow_durs"
+    if cache_key in _assets:
+        return _assets[cache_key], _assets[dcache_key]
+    name = "shadow-noir.gif" if suit_num == 18 else "shadow.gif"
+    shadow_path = os.path.join(ASSETS, name)
     frames, durs = _load_gif_frames(shadow_path, w, h, speed=1.5)
-    _assets["shadow_frames"] = frames
-    _assets["shadow_durs"] = durs
+    _assets[cache_key] = frames
+    _assets[dcache_key] = durs
     return frames, durs
 
 
@@ -169,25 +175,19 @@ def _load_pose(suit_num, w, h):
 def _render_pose_overlay(screen, shadow_frames, pose_frames, shadow_idx, pose_idx):
     if not pose_frames or not shadow_frames:
         return
-    sf = shadow_frames[shadow_idx % len(shadow_frames)]
+    cycle = len(shadow_frames)
+    sf = shadow_frames[shadow_idx % cycle]
     white_shadow = pygame.Surface(sf.get_size(), pygame.SRCALPHA)
     white_shadow.fill((255, 255, 255, 255))
     white_shadow.blit(sf, (0, 0))
     screen.blit(white_shadow, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-    pf = pose_frames[pose_idx % len(pose_frames)]
+    pf = pose_frames[pose_idx % cycle]
     screen.blit(pf, (0, 0))
-
-
-def _get_pose_frame_duration(durs, idx):
-    if not durs:
-        return 16
-    return max(16, int(durs[idx % len(durs)] * 0.45))
 
 
 def main_loop(screen, screen_width, screen_height):
     global _assets
-    if "bg" not in _assets:
-        load_fast(screen, screen_width, screen_height)
+    _load_event.wait()
     a = _assets
     w, h = screen_width, screen_height
 
@@ -199,29 +199,19 @@ def main_loop(screen, screen_width, screen_height):
     modal_choice = 0
 
     shadow_frames = []
-    shadow_durs = []
     pose_frames = []
-    pose_durs = []
-    shadow_idx = 0
-    pose_idx = 0
-    shadow_timer = 0
-    pose_timer = 0
+    shared_durs = []
+    shared_idx = 0
+    shared_timer = 0
 
     def activate_pose_for_suit(suit_num):
-        nonlocal active_pose_suit, shadow_frames, shadow_durs, pose_frames, pose_durs, shadow_idx, pose_idx, shadow_timer, pose_timer
+        nonlocal active_pose_suit, shadow_frames, pose_frames, shared_durs, shared_idx, shared_timer
         active_pose_suit = suit_num
-        shadow_frames, shadow_durs = _load_shadow(w, h)
-        pose_frames, pose_durs = _load_pose(active_pose_suit, w, h)
-        if shadow_frames:
-            shadow_idx = 1 % len(shadow_frames)
-        else:
-            shadow_idx = 0
-        if pose_frames:
-            pose_idx = 1 % len(pose_frames)
-        else:
-            pose_idx = 0
-        shadow_timer = 0
-        pose_timer = 0
+        shadow_frames, shadow_durs = _load_shadow(w, h, suit_num)
+        pose_frames, _ = _load_pose(active_pose_suit, w, h)
+        shared_durs = shadow_durs
+        shared_idx = 0
+        shared_timer = 0
 
     activate_pose_for_suit(active_pose_suit)
     sfx = a["sfx"]
@@ -273,18 +263,12 @@ def main_loop(screen, screen_width, screen_height):
                         running = False
 
         if active_pose_suit > 0 and pose_frames:
-            shadow_timer += dt
-            pose_timer += dt
-            sd = max(16, int(_get_pose_frame_duration(shadow_durs, shadow_idx)))
-            while shadow_timer >= sd:
-                shadow_timer -= sd
-                shadow_idx = (shadow_idx + 1) % len(shadow_frames)
-                sd = max(16, int(_get_pose_frame_duration(shadow_durs, shadow_idx)))
-            pd = max(16, int(_get_pose_frame_duration(pose_durs, pose_idx)))
-            while pose_timer >= pd:
-                pose_timer -= pd
-                pose_idx = (pose_idx + 1) % len(pose_frames)
-                pd = max(16, int(_get_pose_frame_duration(pose_durs, pose_idx)))
+            shared_timer += dt
+            dur = max(16, int(shared_durs[shared_idx % len(shared_durs)]))
+            while shared_timer >= dur:
+                shared_timer -= dur
+                shared_idx += 1
+                dur = max(16, int(shared_durs[shared_idx % len(shared_durs)]))
 
         screen.fill((0, 0, 0))
 
@@ -308,7 +292,7 @@ def main_loop(screen, screen_width, screen_height):
         screen.blit(a["arrows"][current_suit], (0, 0))
 
         if active_pose_suit > 0 and pose_frames:
-            _render_pose_overlay(screen, shadow_frames, pose_frames, shadow_idx, pose_idx)
+            _render_pose_overlay(screen, shadow_frames, pose_frames, shared_idx, shared_idx)
 
         x = a["cx"]
         for lbl, lbl_shadow, k_scaled, seg_w in a["ctrl_data"]:

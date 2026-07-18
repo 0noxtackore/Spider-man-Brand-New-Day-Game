@@ -29,8 +29,6 @@ saved_frame = start.main_loop(screen, sw, sh)
 if saved_frame:
     screen.blit(saved_frame, (0, 0))
     pygame.display.flip()
-if "bg" not in costumes._assets:
-    costumes.load_fast(screen, sw, sh)
 costumes.main_loop(screen, sw, sh)
 
 pygame.quit()
